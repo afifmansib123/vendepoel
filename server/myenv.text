@@ -8,3 +8,7 @@ PORT=3001
 # See the documentation for all the connection string options: https://pris.ly/d/connection-strings
 
 DATABASE_URL="postgresql://postgres:512465@localhost:5432/testapplication?schema=public"
+AWS_ACCESS_KEY_ID=AKIAUS5UZU3UCJEE4LP4
+AWS_SECRET_ACCESS_KEY=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
+AWS_REGION=ap-southeast-1
+S3_BUCKET_NAME=anewtestingbucketisbetter

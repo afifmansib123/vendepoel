@@ -1,0 +1,1 @@
+aws needs to be changed to personzl as images arent loading
