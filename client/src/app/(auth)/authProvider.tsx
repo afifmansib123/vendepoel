@@ -153,7 +153,7 @@ const Auth = ({ children }: { children: React.ReactNode }) => {
     if (user && isAuthPage) {
       router.push("/");
     }
-  }, [user, isAuthPage, router]);
+  }, [user, isAuthPage, router]);  
 
   // Allow access to public pages without authentication
   if (!isAuthPage && !isDashboardPage) {

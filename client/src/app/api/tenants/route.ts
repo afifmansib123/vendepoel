@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     const { cognitoId, name, email, phoneNumber } = body;
 
     // Basic validation
-    if (!cognitoId || !name || !email || !phoneNumber) {
+    if (!cognitoId || !name || !email) {
       return NextResponse.json({ message: 'Missing required fields: cognitoId, name, email, phoneNumber' }, { status: 400 });
     }
 

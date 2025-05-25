@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { cognitoId, name, email, phoneNumber } = body;
 
-    if (!cognitoId || !name || !email || !phoneNumber) {
+    if (!cognitoId || !name || !email) {
       return NextResponse.json({ message: 'Missing required fields: cognitoId, name, email, phoneNumber' }, { status: 400 });
     }
 

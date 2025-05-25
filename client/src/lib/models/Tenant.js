@@ -26,7 +26,7 @@ const TenantSchema = new mongoose.Schema({
   },
   phoneNumber: {
     type: String,
-    required: [true, 'Phone number is required.'],
+    required: [false, 'Phone number is not required.'],
   },
 
   // For existing data with {"connect": [{"id": X}]}, Mongoose will try to cast.

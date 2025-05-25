@@ -28,7 +28,7 @@ const ManagerSchema = new mongoose.Schema({
   },
   phoneNumber: {
     type: String,
-    required: [true, 'Phone number is required.'],
+    required: [false, 'Phone number is not required.'],
   },
   // `managedProperties` is not stored directly on the Manager document.
   // It's a "virtual" relationship derived by querying Properties.
