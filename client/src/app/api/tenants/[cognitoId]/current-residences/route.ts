@@ -5,6 +5,23 @@ import Property from '@/lib/models/Property'; // Your Mongoose Property model
 import Location from '@/lib/models/Location'; // Your Mongoose Location model
 import Lease from '@/lib/models/Lease';       // Your Mongoose Lease model
 import Tenant from '@/lib/models/Tenant';     // Your Mongoose Tenant model
+import mongoose from 'mongoose';
+
+interface Tenant{
+_id : mongoose.ObjectId;
+cognitoId?: string;
+}
+
+interface LocationDoc {
+  id: number;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  postalCode: string;
+  coordinates?: string; // The WKT string, optional
+  [key: string]: any; // For other potential fields
+}
 
 // Helper for WKT parsing
 function parseWKTPoint(wktString: string | null | undefined): { longitude: number; latitude: number } | null {
@@ -37,7 +54,7 @@ export async function GET(
     if (!tenant) {
       return NextResponse.json({ message: 'Tenant not found' }, { status: 404 });
     }
-    const tenantObjectId = tenant._id; // This is the MongoDB ObjectId
+    const tenantObjectId = tenant; // This is the MongoDB ObjectId
 
     // Find active leases for this tenant
     // An "active" lease could be defined as startDate <= now < endDate
@@ -64,7 +81,7 @@ export async function GET(
       properties.map(async (property: any) => {
         let locationData = null;
         if (property.locationId) {
-          const locationDoc = await Location.findOne({ id: property.locationId }).lean().exec();
+          const locationDoc = await Location.findOne({ id: property.locationId }).lean().exec() as LocationDoc | null;
           if (locationDoc) {
             locationData = {
               id: locationDoc.id,

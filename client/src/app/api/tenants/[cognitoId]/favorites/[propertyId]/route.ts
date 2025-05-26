@@ -79,7 +79,7 @@ export async function DELETE(
     // Remove from favorites using $pull
     // Assumes tenant.favorites is an array of numeric Property IDs
     const initialFavCount = tenant!.favorites.length;
-    tenant!.favorites = tenant!.favorites.filter(favId => favId !== propertyId!);
+    tenant!.favorites = tenant!.favorites.filter((favId : number) => favId !== propertyId!);
 
     if (tenant!.favorites.length < initialFavCount) { // Check if something was actually removed
         await tenant!.save();

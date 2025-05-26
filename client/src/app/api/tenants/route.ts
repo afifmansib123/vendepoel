@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Tenant from '@/lib/models/Tenant'; // Your Mongoose Tenant model
 
+interface TenantIdResult {
+  id: number;
+}
+
 export async function POST(request: NextRequest) {
   await dbConnect();
 
@@ -24,7 +28,7 @@ export async function POST(request: NextRequest) {
     // Create new tenant (manage numeric ID if your "adjusted" schema requires it and it's not auto-managed)
     // For simplicity, assuming numeric 'id' is handled or not strictly sequential for new creates via API
     // If 'id' is required and numeric, you'd need a sequence generator
-    const lastTenant = await Tenant.findOne().sort({ id: -1 }).select('id').lean();
+    const lastTenant = await Tenant.findOne().sort({ id: -1 }).select('id').lean() as TenantIdResult | null;
     const nextTenantId = (lastTenant && typeof lastTenant.id === 'number' ? lastTenant.id : 0) + 1;
 
 

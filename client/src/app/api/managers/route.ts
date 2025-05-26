@@ -2,6 +2,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Manager from '@/lib/models/Manager'; // Your Mongoose Manager model
+import mongoose from 'mongoose';
+
+interface ManagerData {
+  _id: mongoose.ObjectId // Optional if your schema does not require it
+  id?: number; // Optional if your schema does not require it
+  cognitoId: string;
+  name: string;
+  email: string;
+  phoneNumber?: string; // Optional field
+}
 
 export async function POST(request: NextRequest) {
   await dbConnect();
@@ -20,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Manage numeric 'id' if your "adjusted" schema requires it
-    const lastManager = await Manager.findOne().sort({ id: -1 }).select('id').lean();
+    const lastManager = await Manager.findOne().sort({ id: -1 }).select('id').lean() as ManagerData | null;
     const nextManagerId = (lastManager && typeof lastManager.id === 'number' ? lastManager.id : 0) + 1;
 
     const newManager = new Manager({

@@ -1,14 +1,98 @@
 // src/app/api/properties/[propertyId]/leases/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { Types } from 'mongoose';
 import dbConnect from '@/lib/dbConnect';
 import Lease from '@/lib/models/Lease';     // Your Mongoose Lease model
 import Tenant from '@/lib/models/Tenant';   // To populate tenant
-import Property from '@/lib/models/Property'; // To populate property within lease (or verify property exists)
-// Import Location if Property population needs it
+import Property from '@/lib/models/Property'; // To populate property within lease
+// Location model is dynamically imported below
 
-// Helper for WKT parsing
-function parseWKTPoint(wktString: string | null | undefined): { longitude: number; latitude: number } | null {
-    // ... (same parseWKTPoint function as in leases/route.ts) ...
+// --- START Standard Type Definitions ---
+
+// For the Next.js route handler context parameters
+interface HandlerContext {
+  params: {
+    propertyId: string;
+  };
+}
+
+// Utility Types
+interface ParsedPointCoordinates {
+  longitude: number;
+  latitude: number;
+}
+
+// --- Model-Specific Lean Document Interfaces (as fetched from DB) ---
+interface LocationDocumentLean {
+  _id: Types.ObjectId | string;
+  id: number; // Custom numeric ID
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  coordinates?: string; // WKT string
+  [key: string]: any;
+}
+
+interface PropertyDocumentLean {
+  _id: Types.ObjectId | string;
+  id: number; // Custom numeric ID
+  locationId?: number; // Numeric ID referencing Location
+  // Add other property fields as they exist in your schema (e.g., name, pricePerMonth)
+  [key: string]: any;
+}
+
+interface TenantDocumentLean {
+  _id: Types.ObjectId | string;
+  cognitoId: string; // Assuming cognitoId is always present
+  // Add other tenant fields
+  [key: string]: any;
+}
+
+interface LeaseDocumentLean {
+  _id: Types.ObjectId | string;
+  id?: number; // Assuming leases might also have a custom numeric ID
+  tenant?: Types.ObjectId | string; // ObjectId ref to Tenant model
+  tenantCognitoId?: string;        // Alternatively, cognitoId of the tenant
+  propertyId?: number;             // Numeric ID of the property (this will match numericPropertyId from params)
+  startDate?: Date | string;
+  endDate?: Date | string;
+  rent?: number;
+  // Add other lease fields
+  [key: string]: any;
+}
+
+// --- Interfaces for Formatted Data in API Response ---
+interface FormattedLocationResponse extends Omit<LocationDocumentLean, 'coordinates' | '_id'> {
+  _id: string; // Ensure string for response
+  coordinates: ParsedPointCoordinates | null;
+}
+
+interface FormattedPropertyResponse extends Omit<PropertyDocumentLean, 'locationId' | '_id'> {
+  _id: string; // Ensure string for response
+  location: FormattedLocationResponse | null;
+  // Add other formatted property fields if needed
+}
+
+interface FormattedTenantResponse extends Omit<TenantDocumentLean, '_id'> {
+    _id: string; // Ensure string for response
+}
+
+// The final structure for each lease in the response array
+interface FormattedLeaseResponse extends Omit<LeaseDocumentLean, 'tenant' | 'propertyId' | '_id' | 'startDate' | 'endDate'> {
+  _id: string; // Ensure string for response
+  startDate?: string; // Dates as ISO strings
+  endDate?: string;
+  tenant: FormattedTenantResponse | null;
+  property: FormattedPropertyResponse | null; // Property details are populated for each lease
+}
+
+// --- END Standard Type Definitions ---
+
+
+// Helper for WKT parsing (already well-typed)
+function parseWKTPoint(wktString: string | null | undefined): ParsedPointCoordinates | null {
     if (!wktString || typeof wktString !== 'string') return null;
     const match = wktString.match(/POINT\s*\(([-\d.]+)\s+([-\d.]+)\)/i);
     if (match && match.length === 3) {
@@ -24,10 +108,10 @@ function parseWKTPoint(wktString: string | null | undefined): { longitude: numbe
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { propertyId: string } }
+  context: HandlerContext // Use defined HandlerContext
 ) {
   await dbConnect();
-  const { propertyId: propertyIdStr } = params;
+  const { propertyId: propertyIdStr } = context.params; // Destructure from typed context
 
   const numericPropertyId = Number(propertyIdStr);
   if (isNaN(numericPropertyId)) {
@@ -35,56 +119,97 @@ export async function GET(
   }
 
   try {
-    // Optional: Check if property exists
-    const propertyExists = await Property.findOne({id: numericPropertyId}).lean().exec();
+    // Optional: Check if property exists and get its details for later use
+    const propertyExists = await Property.findOne({id: numericPropertyId})
+        .lean()
+        .exec() as unknown as PropertyDocumentLean | null; // Assert type
+
     if (!propertyExists) {
         return NextResponse.json({ message: "Property not found"}, {status: 404});
     }
 
-    // Find leases where Lease.propertyId (numeric) matches numericPropertyId
-    // Your Prisma query included tenant and property for each lease.
-    const rawLeases = await Lease.find({ propertyId: numericPropertyId }).lean().exec();
+    const rawLeases = await Lease.find({ propertyId: numericPropertyId })
+        .lean()
+        .exec() as unknown as LeaseDocumentLean[]; // Assert type
 
-    const leases = await Promise.all(
-        rawLeases.map(async (lease: any) => {
-            let tenantData = null;
-            // Assuming Lease.tenant stores Tenant's ObjectId, or Lease.tenantCognitoId stores cognitoId
-            if (lease.tenant) { // If Lease.tenant stores Tenant ObjectId
-                tenantData = await Tenant.findById(lease.tenant).lean().exec();
-            } else if (lease.tenantCognitoId) { // Or if it stores cognitoId
-                tenantData = await Tenant.findOne({ cognitoId: lease.tenantCognitoId }).lean().exec();
+    const leases: FormattedLeaseResponse[] = await Promise.all(
+        rawLeases.map(async (lease: LeaseDocumentLean): Promise<FormattedLeaseResponse> => {
+            let tenantData: FormattedTenantResponse | null = null;
+            const { _id: lease_Id, startDate: leaseStartDate, endDate: leaseEndDate, ...restOfLease } = lease;
+
+            // Populate Tenant:
+            if (lease.tenant) {
+                const tenantDoc = await Tenant.findById(lease.tenant)
+                    .lean()
+                    .exec() as unknown as TenantDocumentLean | null;
+                if (tenantDoc) {
+                    const { _id: tenant_Id, ...restOfTenantDoc } = tenantDoc;
+                    tenantData = {
+                        ...restOfTenantDoc,
+                        _id: typeof tenant_Id === 'string' ? tenant_Id : tenant_Id.toString(),
+                        cognitoId: tenantDoc.cognitoId,
+                    };
+                }
+            } else if (lease.tenantCognitoId) {
+                const tenantDoc = await Tenant.findOne({ cognitoId: lease.tenantCognitoId })
+                    .lean()
+                    .exec() as unknown as TenantDocumentLean | null;
+                if (tenantDoc) {
+                     const { _id: tenant_Id, ...restOfTenantDoc } = tenantDoc;
+                    tenantData = {
+                        ...restOfTenantDoc,
+                        _id: typeof tenant_Id === 'string' ? tenant_Id : tenant_Id.toString(),
+                        cognitoId: tenantDoc.cognitoId,
+                    };
+                }
             }
 
-            // The property for these leases is the one identified by numericPropertyId.
-            // We already fetched it (propertyExists) or can re-fetch a minimal version if needed.
-            // For simplicity, we'll attach the already known property ID, or you can attach propertyExists.
-            // To match Prisma's `include: { property: true }`, we should return the property details.
-            // Since all these leases are FOR this property, we can use `propertyExists`.
+            // Populate property details (using the 'propertyExists' fetched earlier)
+            let propertyDetailsWithLocation: FormattedPropertyResponse | null = null;
+            if (propertyExists) { // propertyExists is already PropertyDocumentLean | null
+                let locationData: FormattedLocationResponse | null = null;
+                const { _id: prop_Id, locationId: propLocationId, ...restOfPropExists } = propertyExists;
 
-            let propertyDetailsWithLocation = null;
-            if (propertyExists) {
-                let locationData = null;
-                if (propertyExists.locationId) {
-                     const loc = await dbConnect().then(() => import('@/lib/models/Location')).then(mod => mod.default.findOne({ id: propertyExists.locationId as number }).lean().exec());
+                if (propLocationId !== undefined && propLocationId !== null) {
+                     const LocationModel = await dbConnect().then(() => import('@/lib/models/Location')).then(mod => mod.default);
+                     const loc = await LocationModel.findOne({ id: propLocationId })
+                        .lean()
+                        .exec() as unknown as LocationDocumentLean | null;
                     if (loc) {
+                        const { _id: loc_Id, coordinates: locCoords, ...restOfLoc } = loc;
                         locationData = {
-                            ...loc,
-                            coordinates: parseWKTPoint(loc.coordinates as string | undefined)
+                            ...restOfLoc,
+                            _id: typeof loc_Id === 'string' ? loc_Id : loc_Id.toString(),
+                            id: loc.id,
+                            coordinates: parseWKTPoint(locCoords)
                         };
                     }
                 }
-                propertyDetailsWithLocation = { ...propertyExists, location: locationData };
+                propertyDetailsWithLocation = {
+                    ...restOfPropExists,
+                    _id: typeof prop_Id === 'string' ? prop_Id : prop_Id.toString(),
+                    id: propertyExists.id,
+                    location: locationData
+                };
             }
 
-
-            return { ...lease, tenant: tenantData, property: propertyDetailsWithLocation };
+            return {
+                ...restOfLease,
+                _id: typeof lease_Id === 'string' ? lease_Id : lease_Id.toString(),
+                id: lease.id,
+                startDate: leaseStartDate ? new Date(leaseStartDate).toISOString() : undefined,
+                endDate: leaseEndDate ? new Date(leaseEndDate).toISOString() : undefined,
+                tenant: tenantData,
+                property: propertyDetailsWithLocation
+            };
         })
     );
 
     return NextResponse.json(leases, { status: 200 });
 
-  } catch (error: any) {
+  } catch (error: unknown) { // Changed from 'any' to 'unknown'
     console.error(`Error retrieving leases for property ${numericPropertyId}:`, error);
-    return NextResponse.json({ message: `Error retrieving property leases: ${error.message}` }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ message: `Error retrieving property leases: ${message}` }, { status: 500 });
   }
 }
