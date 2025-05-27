@@ -117,26 +117,28 @@ interface AmplifyIdToken { // From session.tokens.idToken
 
 
 // --- REVISED createNewUserInDatabase ---
+
 export const createNewUserInDatabase = async (
   amplifyUser: AmplifyCognitoUser,      // From getCurrentUser()
   idTokenObj: AmplifyIdToken | undefined, // From fetchAuthSession().tokens.idToken
-  userRole: string,                     // 'manager' or 'tenant'
+  userRole: string,                     // 'manager', 'tenant', 'landlord', or 'buyer'
   fetchWithBQ: any                      // RTK Query's fetchBaseQuery instance
 ) => {
   console.log('[utils/createNewUserInDatabase] Called. UserID:', amplifyUser.userId, 'Role:', userRole);
   const idTokenPayload = idTokenObj?.payload;
 
-  // Extract attributes - these MUST come from Cognito successfully
   const cognitoIdForBody = amplifyUser.userId;
 
-  // Prioritize idToken, then amplifyUser.attributes.
-  const email = idTokenPayload?.email || amplifyUser.attributes?.email;
-  const phoneNumber = idTokenPayload?.phone_number || amplifyUser.attributes?.phone_number;
+  // Ensure amplifyUser.attributes is correctly typed or cast if necessary
+  const attributes = (amplifyUser as any).attributes || {}; 
+
+  const email = idTokenPayload?.email || attributes.email;
+  const phoneNumber = idTokenPayload?.phone_number || attributes.phone_number;
   
-  let name = idTokenPayload?.name || amplifyUser.attributes?.name;
+  let name = idTokenPayload?.name || attributes.name;
   if (!name) {
-    const givenName = idTokenPayload?.given_name || amplifyUser.attributes?.given_name;
-    const familyName = idTokenPayload?.family_name || amplifyUser.attributes?.family_name;
+    const givenName = idTokenPayload?.given_name || attributes.given_name;
+    const familyName = idTokenPayload?.family_name || attributes.family_name;
     if (givenName && familyName) {
       name = `${givenName} ${familyName}`;
     } else if (givenName) {
@@ -144,14 +146,12 @@ export const createNewUserInDatabase = async (
     } else if (familyName) {
       name = familyName;
     } else {
-      name = amplifyUser.username; // Fallback to username if no name parts found
+      name = amplifyUser.username; 
     }
   }
 
   console.log(`[utils/createNewUserInDatabase] Extracted for payload - CognitoID: "${cognitoIdForBody}", Name: "${name}", Email: "${email}", Phone: "${phoneNumber}"`);
 
-  // This payload is for your current "plain" POST /api/managers or /api/tenants
-  // which expects cognitoId in the body.
   const userDataPayload = {
     cognitoId: cognitoIdForBody,
     name: name,
@@ -159,8 +159,6 @@ export const createNewUserInDatabase = async (
     phoneNumber: phoneNumber,
   };
 
-  // Client-side check for truly missing essential data before sending
-  // This is important because your backend POST handlers require these fields.
   if (!userDataPayload.cognitoId || !userDataPayload.name || !userDataPayload.email) {
     const missingFields: string[] = [];
     if (!userDataPayload.cognitoId) missingFields.push("cognitoId (from amplifyUser.userId)");
@@ -169,31 +167,57 @@ export const createNewUserInDatabase = async (
     
     const clientErrorMessage = `Client: Cannot create user profile in DB. Missing essential attributes from Cognito: ${missingFields.join(', ')}. Please check Cognito User Pool attribute settings, app client read permissions, and ensure the user has these attributes set in Cognito.`;
     console.error(`[utils/createNewUserInDatabase] ${clientErrorMessage}`);
-    // Return an RTK-Query like error structure so getAuthUser's try/catch can handle it gracefully
-    // or so that `userDetailsResponse.error` is populated.
     return { 
         error: { 
-            status: 400, // Using 400 to indicate a client-side data preparation issue
+            status: 400, 
             data: { message: clientErrorMessage } 
         } 
     };
   }
 
-  const endpointPath = userRole.toLowerCase() === 'manager' ? '/managers' : '/tenants';
+  // --- MODIFICATION START: Determine endpointPath based on userRole ---
+  let endpointPath = "";
+  const roleLower = userRole.toLowerCase();
+
+  switch (roleLower) {
+    case 'manager':
+      endpointPath = '/managers';
+      break;
+    case 'tenant':
+      endpointPath = '/tenants';
+      break;
+    case 'landlord':
+      endpointPath = '/landlords'; // Added landlord endpoint
+      break;
+    case 'buyer':
+      endpointPath = '/buyers';   // Added buyer endpoint (ensure this POST endpoint exists on your backend)
+      break;
+    default:
+      // Handle unknown role - important for robustness
+      const unknownRoleError = `[utils/createNewUserInDatabase] Unknown user role "${userRole}" for determining creation endpoint. Cannot proceed with user creation.`;
+      console.error(unknownRoleError);
+      return {
+        error: {
+          status: 400, // Or 500, depending on how you want to classify this
+          data: { message: `Cannot create user: Unknown role '${userRole}'. Check Cognito custom:role attribute.` }
+        }
+      };
+  }
+  // --- MODIFICATION END ---
+
   console.log(`[utils/createNewUserInDatabase] Calling POST to ${endpointPath} with payload:`, userDataPayload);
 
   const createUserResponse = await fetchWithBQ({
-    url: endpointPath, // Relative to NEXT_PUBLIC_API_BASE_URL
+    url: endpointPath, 
     method: 'POST',
     body: userDataPayload,
   });
 
   if (createUserResponse.error) {
-    // Log the error from the backend
     console.error(`[utils/createNewUserInDatabase] Backend error creating user (POST ${endpointPath}): Status ${createUserResponse.error.status}`, createUserResponse.error.data);
   } else {
     console.log(`[utils/createNewUserInDatabase] Successfully created user via POST to ${endpointPath}:`, createUserResponse.data);
   }
 
-  return createUserResponse; // Return the RTK Query response object (with .data or .error)
+  return createUserResponse; 
 };

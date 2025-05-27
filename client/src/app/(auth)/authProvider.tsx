@@ -20,12 +20,14 @@ Amplify.configure({
       userPoolId: process.env.NEXT_PUBLIC_AWS_COGNITO_USER_POOL_ID!,
       userPoolClientId:
         process.env.NEXT_PUBLIC_AWS_COGNITO_USER_POOL_CLIENT_ID!,
+      // CRUCIAL: Ensure your Cognito User Pool has a custom attribute named 'custom:role'
+      // and your App Client has write permissions for it.
     },
   },
 });
 
 const components = {
-  Header() {
+  Header() { // Original Header
     return (
       <View className="mt-4 mb-7">
         <Heading level={3} className="!text-2xl !font-bold">
@@ -40,13 +42,13 @@ const components = {
       </View>
     );
   },
-  SignIn: {
+  SignIn: { // Original SignIn Footer
     Footer() {
       const { toSignUp } = useAuthenticator();
       return (
         <View className="text-center mt-4">
           <p className="text-muted-foreground">
-            Don&apos;t have an account?{" "}
+            Don't have an account?{" "}
             <button
               onClick={toSignUp}
               className="text-primary hover:underline bg-transparent border-none p-0"
@@ -64,22 +66,27 @@ const components = {
 
       return (
         <>
-          <Authenticator.SignUp.FormFields />
+          {/* Original Amplify Sign Up Fields */}
+          <Authenticator.SignUp.FormFields /> 
+          {/* --- MODIFICATION START --- */}
           <RadioGroupField
-            legend="Role"
-            name="custom:role"
+            legend="Role" // Kept original legend
+            name="custom:role" // MUST match your Cognito custom attribute
             errorMessage={validationErrors?.["custom:role"]}
             hasError={!!validationErrors?.["custom:role"]}
-            isRequired
+            isRequired // Kept original isRequired
           >
             <Radio value="tenant">Tenant</Radio>
             <Radio value="manager">Manager</Radio>
+            <Radio value="landlord">Landlord</Radio> {/* ADDED Landlord */}
+            <Radio value="buyer">Buyer</Radio>     {/* ADDED Buyer */}
           </RadioGroupField>
+          {/* --- MODIFICATION END --- */}
         </>
       );
     },
 
-    Footer() {
+    Footer() { // Original SignUp Footer
       const { toSignIn } = useAuthenticator();
       return (
         <View className="text-center mt-4">
@@ -98,7 +105,7 @@ const components = {
   },
 };
 
-const formFields = {
+const formFields = { // Original formFields
   signIn: {
     username: {
       placeholder: "Enter your email",
@@ -136,38 +143,54 @@ const formFields = {
       label: "Confirm Password",
       isRequired: true,
     },
+    // 'custom:role' will be handled by the RadioGroupField in components.SignUp.FormFields
+    // No need to add 'custom:role' here unless you want to change its order or specific props
+    // not covered by RadioGroupField directly.
   },
 };
 
 const Auth = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuthenticator((context) => [context.user]);
+  const { user, authStatus } = useAuthenticator((context) => [context.user, context.authStatus]); // Added authStatus for more robust checks
   const router = useRouter();
   const pathname = usePathname();
 
-  const isAuthPage = pathname.match(/^\/(signin|signup)$/);
-  const isDashboardPage =
-    pathname.startsWith("/manager") || pathname.startsWith("/tenants");
+  const isAuthPage = pathname === "/signin" || pathname === "/signup"; // Original check, slightly simplified from regex
+
+  // --- MODIFICATION START ---
+  const dashboardPrefixes = ["/manager", "/tenants", "/landlords", "/buyers"]; // ADDED landlord and buyer prefixes
+  const isDashboardPage = dashboardPrefixes.some(prefix => pathname.startsWith(prefix));
+  // --- MODIFICATION END ---
+
 
   // Redirect authenticated users away from auth pages
   useEffect(() => {
-    if (user && isAuthPage) {
-      router.push("/");
+    // Original logic: if (user && isAuthPage) { router.push("/"); }
+    // Using authStatus for more reliability:
+    if (authStatus === 'authenticated' && isAuthPage) {
+      router.replace("/"); // Using replace to avoid adding to history stack
     }
-  }, [user, isAuthPage, router]);  
+  }, [authStatus, isAuthPage, router]);  
 
   // Allow access to public pages without authentication
   if (!isAuthPage && !isDashboardPage) {
     return <>{children}</>;
   }
 
+  // If the user is NOT authenticated and tries to access a dashboard page,
+  // Authenticator wrapper will handle showing the sign-in form.
+  // If the user IS authenticated, Authenticator will render its children (our page's children).
+
   return (
-    <div className="h-full">
+    <div className="h-full"> {/* Original wrapper div */}
       <Authenticator
         initialState={pathname.includes("signup") ? "signUp" : "signIn"}
         components={components}
         formFields={formFields}
+        // loginMechanisms={['email']} // Add if you want to explicitly set this
+        // signUpAttributes={['email', 'custom:role']} // 'custom:role' is handled by RadioGroupField
       >
-        {() => <>{children}</>}
+        {/* This function is called when authenticated */}
+        {({ signOut, user }) => <>{children}</>}
       </Authenticator>
     </div>
   );
