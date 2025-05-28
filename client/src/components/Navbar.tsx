@@ -131,9 +131,7 @@ const Navbar = () => {
                     className="cursor-pointer hover:!bg-primary-700 hover:!text-primary-100 font-bold"
                     onClick={() =>
                       router.push(
-                        authUser.userRole?.toLowerCase() === "manager"
-                          ? "/managers/properties"
-                          : "/buyers/favorites",
+                        `/${authUser.userRole?.toLowerCase()}s/settings`,
                         { scroll: false }
                       )
                     }

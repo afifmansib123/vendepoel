@@ -98,6 +98,7 @@ const PropertySchema = new mongoose.Schema({
     // required: true, // Make this required if every property MUST have a managerCognitoId
     index: true,    // Good if you query by managerCognitoId
   },
+  landlordCognitoId: { type: String, index: true },
   // --- End of adjusted fields ---
 
   // These M-M relationships likely don't exist in your current flat dummy data's root level.

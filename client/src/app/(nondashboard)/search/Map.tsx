@@ -6,7 +6,6 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { useAppSelector } from "@/state/redux";
 import { useGetPropertiesQuery } from "@/state/api";
 // import { Property } from "@/types/prismaTypes"; // << REMOVE THIS, USE PropertyFromAPI
-import { PropertyFromAPI } from "@/types/apiReturnTypes"; // << IMPORT CORRECT TYPE
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN as string;
 
@@ -36,7 +35,7 @@ const Map = () => {
       zoom: filters.coordinates ? 9 : 3, // Zoom in if coordinates are specific, else zoom out
     });
 
-    properties.forEach((property: PropertyFromAPI) => { // Use the correct type
+    properties.forEach((property) => { // Use the correct type
       // <<<<<<<< ADD NULL CHECKS HERE >>>>>>>>>>
       if (property.location && property.location.coordinates &&
           typeof property.location.coordinates.longitude === 'number' &&
@@ -55,7 +54,7 @@ const Map = () => {
     // Adjust map bounds to fit markers if needed (optional)
     if (properties.some(p => p.location && p.location.coordinates)) {
         const bounds = new mapboxgl.LngLatBounds();
-        properties.forEach((property: PropertyFromAPI) => {
+        properties.forEach((property) => {
             if (property.location && property.location.coordinates &&
                 typeof property.location.coordinates.longitude === 'number' &&
                 typeof property.location.coordinates.latitude === 'number') {
@@ -109,7 +108,7 @@ const Map = () => {
 };
 
 // Ensure Property type here matches what is passed from the loop
-const createPropertyMarker = (property: PropertyFromAPI, map: mapboxgl.Map) => {
+const createPropertyMarker = (property : any, map: mapboxgl.Map) => {
   // The null checks are now done before calling this function,
   // but an extra check here for safety doesn't hurt, or rely on TypeScript nullability.
   if (!property.location?.coordinates) {

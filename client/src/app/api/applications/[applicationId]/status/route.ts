@@ -2,164 +2,101 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Types } from 'mongoose';
 import dbConnect from '@/lib/dbConnect';
-import Application from '@/lib/models/Application';
-import Lease from '@/lib/models/Lease';
+import Application from '@/lib/models/Application'; // Ensure this model uses applicantCognitoId & applicantType
+import Lease from '@/lib/models/Lease';         // Ensure this model uses applicantCognitoId & applicantType
 import Property from '@/lib/models/Property';
 import Tenant from '@/lib/models/Tenant';
 import Manager from '@/lib/models/Manager';
 import Location from '@/lib/models/Location';
+import Buyer from '@/lib/models/Buyer'; // Import Buyer model
 
-// --- START Standard Type Definitions ---
+// --- START Type Definitions (Modified for Buyers) ---
 
-// Route Handler Context
 interface HandlerContext {
-  params: {
-    applicationId: string;
-  };
+  params: { applicationId: string };
 }
+interface UpdateStatusBody { status: string }
+interface ParsedPointCoordinates { longitude: number; latitude: number }
 
-// Request Body for PUT
-interface UpdateStatusBody {
-  status: string; // e.g., "Approved", "Denied"
-}
-
-// Utility Types
-interface ParsedPointCoordinates {
-  longitude: number;
-  latitude: number;
-}
-
-// --- Model-Specific Lean Document Interfaces (as fetched from DB) ---
 interface LocationDocumentLean {
-  _id: Types.ObjectId | string;
-  id: number; // Custom numeric ID
-  address?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  postalCode?: string;
-  coordinates?: string; // WKT string
-  [key: string]: any;
+  _id: Types.ObjectId | string; id: number; address?: string; city?: string; state?: string;
+  country?: string; postalCode?: string; coordinates?: string; [key: string]: any;
 }
-
 interface PropertyDocumentLean {
-  _id: Types.ObjectId | string;
-  id: number; // Custom numeric ID
-  managerCognitoId?: string;
-  locationId?: number;
-  pricePerMonth?: number;
-  securityDeposit?: number;
-  tenants?: string[]; // Array of tenant cognitoIds
+  _id: Types.ObjectId | string; id: number; managerCognitoId?: string; locationId?: number;
+  pricePerMonth?: number; securityDeposit?: number; tenants?: string[]; buyers?: string[]; // Add buyers here if property tracks them
   [key: string]: any;
 }
-
-interface TenantDocumentLean {
-  _id: Types.ObjectId | string;
-  cognitoId: string;
-  // Omitting fields like 'id', 'favorites', 'properties' as per original .select()
-  [key: string]: any;
+interface UserBaseDocumentLean { // Common for Tenant & Buyer
+  _id: Types.ObjectId | string; id?: number; cognitoId: string; name?: string; email?: string; phoneNumber?: string; [key: string]: any;
 }
-
+interface TenantDocumentLean extends UserBaseDocumentLean {}
+interface BuyerDocumentLean extends UserBaseDocumentLean {}
 interface ManagerDocumentLean {
-  _id: Types.ObjectId | string;
-  cognitoId: string;
-  // Omitting fields like 'id' as per original .select()
-  [key: string]: any;
+  _id: Types.ObjectId | string; cognitoId: string; name?: string; email?: string; [key: string]: any;
 }
 
+// LeaseDocumentLean uses generic applicant
 interface LeaseDocumentLean {
-  _id: Types.ObjectId | string;
-  id: number; // Custom numeric ID
-  startDate?: Date | string;
-  endDate?: Date | string;
-  rent?: number;
-  deposit?: number;
-  propertyId?: number;
-  tenantCognitoId?: string;
+  _id: Types.ObjectId | string; id: number; startDate?: Date | string; endDate?: Date | string;
+  rent?: number; deposit?: number; propertyId?: number;
+  applicantCognitoId: string; // Generic applicant ID
+  applicantType: 'tenant' | 'buyer'; // To distinguish
   [key: string]: any;
 }
 
+// ApplicationDocumentLean uses generic applicant
 interface ApplicationDocumentLean {
-  _id: Types.ObjectId | string;
-  id: number; // Custom numeric ID
-  status: string;
-  propertyId: number;
-  tenantCognitoId: string;
-  leaseId?: number; // Can be undefined initially
-  applicationDate?: Date | string;
-  name?: string; // Assuming these are part of the Application schema
-  email?: string;
-  phoneNumber?: string;
-  message?: string;
-  [key: string]: any;
+  _id: Types.ObjectId | string; id: number; status: string; propertyId: number;
+  applicantCognitoId: string; // Generic applicant ID
+  applicantType: 'tenant' | 'buyer'; // To distinguish
+  leaseId?: number; applicationDate?: Date | string; name?: string; email?: string;
+  phoneNumber?: string; message?: string; [key: string]: any;
 }
 
-// Data for new Lease creation
+// NewLeaseData uses generic applicant
 interface NewLeaseData {
-  id: number;
-  startDate: Date;
-  endDate: Date;
-  rent?: number;
-  deposit?: number;
-  propertyId: number;
-  tenantCognitoId: string;
+  id: number; startDate: Date; endDate: Date; rent?: number; deposit?: number;
+  propertyId: number; applicantCognitoId: string; applicantType: 'tenant' | 'buyer';
 }
+interface ApplicationUpdatePayload { status: string; leaseId?: number }
 
-// Payload for updating Application
-interface ApplicationUpdatePayload {
-  status: string;
-  leaseId?: number;
-}
-
-// --- Interfaces for Formatted Data in API Response ---
+// --- Interfaces for Formatted Data in API Response (Modified for Buyers) ---
 interface FormattedLocationResponse extends Omit<LocationDocumentLean, 'coordinates' | '_id'> {
-  _id: string;
-  coordinates: ParsedPointCoordinates | null;
+  _id: string; coordinates: ParsedPointCoordinates | null;
 }
-
 interface FormattedPropertyResponse extends Omit<PropertyDocumentLean, 'locationId' | '_id'> {
+  _id: string; location: FormattedLocationResponse | null; address?: string;
+}
+interface FormattedUserResponse extends Omit<UserBaseDocumentLean, '_id'> { // Generic for Tenant/Buyer
   _id: string;
-  location: FormattedLocationResponse | null;
-  address?: string; // Convenience field
 }
-
-interface FormattedTenantResponse extends Omit<TenantDocumentLean, '_id'> {
-    _id: string;
-}
-
 interface FormattedManagerResponse extends Omit<ManagerDocumentLean, '_id'> {
     _id: string;
 }
-
-interface FormattedLeaseResponse extends Omit<LeaseDocumentLean, 'startDate' | 'endDate' | '_id'> {
-  _id: string;
-  startDate?: string; // ISO string
-  endDate?: string; // ISO string
-  nextPaymentDate: string | null; // ISO string or null
+interface FormattedLeaseResponse extends Omit<LeaseDocumentLean, 'startDate' | 'endDate' | '_id' | 'applicantCognitoId' | 'applicantType'> {
+  _id: string; startDate?: string; endDate?: string; nextPaymentDate: string | null;
+  applicantCognitoId: string; applicantType: 'tenant' | 'buyer';
 }
-
-interface FormattedApplicationResponse extends Omit<ApplicationDocumentLean, 'applicationDate' | '_id'> {
-  _id: string; // Ensure string
-  applicationDate?: string; // ISO string
+// FormattedApplicationResponse uses generic applicant
+interface FormattedApplicationResponse extends Omit<ApplicationDocumentLean, 'applicationDate' | '_id' | 'applicantCognitoId' | 'applicantType'> {
+  _id: string; applicationDate?: string;
   property: FormattedPropertyResponse | null;
-  tenant: FormattedTenantResponse | null;
+  applicant: FormattedUserResponse | null; // Generic applicant
+  applicantType: 'tenant' | 'buyer';
   manager: FormattedManagerResponse | null;
   lease: FormattedLeaseResponse | null;
 }
 
-// Mongoose Validation Error (reusable)
 interface MongooseValidationError {
-  name: 'ValidationError';
-  message: string;
-  errors: { [key: string]: { message: string; [key: string]: any } };
+  name: 'ValidationError'; message: string; errors: { [key: string]: { message: string; [key: string]: any } };
 }
 function isMongooseValidationError(error: any): error is MongooseValidationError {
   return error && error.name === 'ValidationError' && typeof error.errors === 'object' && error.errors !== null;
 }
+// --- END Type Definitions ---
 
-// --- END Standard Type Definitions ---
 
-// Helper for WKT parsing (already well-typed)
 function parseWKTPoint(wktString: string | null | undefined): ParsedPointCoordinates | null {
     if (!wktString || typeof wktString !== 'string') return null;
     const match = wktString.match(/POINT\s*\(([-\d.]+)\s+([-\d.]+)\)/i);
@@ -184,7 +121,7 @@ function calculateNextPaymentDate(startDateInput: string | Date): Date | null {
 
 export async function PUT(
   request: NextRequest,
-  context: HandlerContext // Use defined HandlerContext
+  context: HandlerContext
 ) {
   await dbConnect();
   const { applicationId: appIdStr } = context.params;
@@ -204,17 +141,21 @@ export async function PUT(
 
     const application = await Application.findOne({ id: numericAppId })
       .lean()
-      .exec() as unknown as ApplicationDocumentLean | null;
+      .exec() as unknown as ApplicationDocumentLean | null; // Type now includes applicantCognitoId & applicantType
 
     if (!application) {
       return NextResponse.json({ message: 'Application not found.' }, { status: 404 });
     }
 
-    // propertyId and tenantCognitoId are required on ApplicationDocumentLean based on usage
-    if (typeof application.propertyId !== 'number' || typeof application.tenantCognitoId !== 'string') {
-        // This should ideally not happen if application data is consistent
-        console.error(`Application ${numericAppId} is missing propertyId or tenantCognitoId.`);
-        return NextResponse.json({ message: 'Application data is incomplete.' }, { status: 500 });
+    // Validate essential fields from the application document
+    if (
+      typeof application.propertyId !== 'number' ||
+      typeof application.applicantCognitoId !== 'string' ||
+      !application.applicantType ||
+      (application.applicantType !== 'tenant' && application.applicantType !== 'buyer')
+    ) {
+        console.error(`Application ${numericAppId} has incomplete or invalid applicant data.`);
+        return NextResponse.json({ message: 'Application data is incomplete or invalid.' }, { status: 500 });
     }
 
     const propertyForApp = await Property.findOne({ id: application.propertyId })
@@ -226,28 +167,34 @@ export async function PUT(
     }
 
     let updatedLeaseId: number | undefined = application.leaseId;
+    let savedLease: LeaseDocumentLean | null = null; // To hold the newly created lease document for the response
 
     if (status === 'Approved' && !application.leaseId) {
       const lastLease = await Lease.findOne().sort({ id: -1 }).select('id').lean().exec() as { id?: number } | null;
       const nextLeaseId = (lastLease && typeof lastLease.id === 'number' ? lastLease.id : 0) + 1;
 
-      const newLeaseData: NewLeaseData = {
+      const newLeaseData: NewLeaseData = { // Uses applicantCognitoId and applicantType
         id: nextLeaseId,
         startDate: new Date(),
         endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
         rent: propertyForApp.pricePerMonth,
         deposit: propertyForApp.securityDeposit,
         propertyId: application.propertyId,
-        tenantCognitoId: application.tenantCognitoId,
+        applicantCognitoId: application.applicantCognitoId,
+        applicantType: application.applicantType,
       };
-      const newLease = new Lease(newLeaseData);
-      const savedLease = await newLease.save(); // savedLease is a Mongoose document
-      updatedLeaseId = savedLease.id; // Access numeric id
+      const newLeaseInstance = new Lease(newLeaseData);
+      const createdLeaseMongooseDoc = await newLeaseInstance.save();
+      savedLease = createdLeaseMongooseDoc.toObject({ virtuals: true }) as LeaseDocumentLean; // Store for response
+      updatedLeaseId = savedLease.id;
 
-      await Property.updateOne(
-        { id: application.propertyId },
-        { $addToSet: { tenants: application.tenantCognitoId } }
-      );
+      // Add applicant to property's list of occupants (tenants or buyers)
+      // This assumes your Property schema has 'tenants: [String]' and 'buyers: [String]'
+      const updatePropertyQuery = application.applicantType === 'tenant'
+        ? { $addToSet: { tenants: application.applicantCognitoId } }
+        : { $addToSet: { buyers: application.applicantCognitoId } }; // Add to buyers list if property tracks it
+
+      await Property.updateOne({ id: application.propertyId }, updatePropertyQuery);
     }
 
     const updatePayload: ApplicationUpdatePayload = { status };
@@ -262,96 +209,89 @@ export async function PUT(
       .exec() as unknown as ApplicationDocumentLean | null;
 
     if (!finalApplicationRaw) {
-      // Should not happen if update was successful, but good for robustness
       return NextResponse.json({ message: 'Failed to retrieve updated application.' }, { status: 500 });
     }
 
-    // --- Populate response data (similar to GET /applications) ---
+    // --- Populate response data ---
     let propertyDataResp: FormattedPropertyResponse | null = null;
     let managerDataResp: FormattedManagerResponse | null = null;
-    let tenantDataResp: FormattedTenantResponse | null = null;
+    let applicantDataResp: FormattedUserResponse | null = null; // Generic applicant
     let leaseDataResp: FormattedLeaseResponse | null = null;
 
-    const { _id: finalApp_Id, applicationDate: finalAppDate, ...restOfFinalApp } = finalApplicationRaw;
+    const { _id: finalApp_Id, applicationDate: finalAppDate, applicantType: finalAppApplicantType, ...restOfFinalApp } = finalApplicationRaw;
 
-
+    // Populate property and manager (same as before)
     if (finalApplicationRaw.propertyId) {
-        const prop = await Property.findOne({ id: finalApplicationRaw.propertyId })
-            .lean()
-            .exec() as unknown as PropertyDocumentLean | null;
+        const prop = await Property.findOne({ id: finalApplicationRaw.propertyId }).lean().exec() as PropertyDocumentLean | null;
         if (prop) {
             let locationData: FormattedLocationResponse | null = null;
             const { _id: prop_Id, locationId: propLocationId, ...restOfProp } = prop;
             if (propLocationId) {
-                const loc = await Location.findOne({ id: propLocationId })
-                    .lean()
-                    .exec() as unknown as LocationDocumentLean | null;
+                const loc = await Location.findOne({ id: propLocationId }).lean().exec() as LocationDocumentLean | null;
                 if (loc) {
-                    const { _id: loc_Id, coordinates: locCoords, ...restOfLoc } = loc;
+                    const { _id: loc_Id, coordinates: locCoords, ...restOfLocDb } = loc;
                     locationData = {
-                        ...restOfLoc,
-                        _id: typeof loc_Id === 'string' ? loc_Id : loc_Id.toString(),
-                        id: loc.id,
-                        coordinates: parseWKTPoint(locCoords),
+                        ...restOfLocDb, _id: typeof loc_Id === 'string' ? loc_Id : loc_Id.toString(),
+                        id: loc.id, coordinates: parseWKTPoint(locCoords),
                     };
                 }
             }
-            if (prop.managerCognitoId) {
-                const manager = await Manager.findOne({ cognitoId: prop.managerCognitoId })
-                    .select('-__v -createdAt -updatedAt -id')
-                    .lean()
-                    .exec() as unknown as Omit<ManagerDocumentLean, 'id'> | null;
+             if (prop.managerCognitoId) {
+                const manager = await Manager.findOne({ cognitoId: prop.managerCognitoId }).select('-__v -createdAt -updatedAt -id').lean().exec() as Omit<ManagerDocumentLean, 'id'> | null;
                 if (manager) {
                     const { _id: manager_Id, ...restOfManager } = manager;
-                    managerDataResp = {
-                        ...restOfManager,
-                        _id: typeof manager_Id === 'string' ? manager_Id : manager_Id.toString(),
-                        cognitoId: manager.cognitoId,
-                    };
+                    managerDataResp = { ...restOfManager, _id: typeof manager_Id === 'string' ? manager_Id : manager_Id.toString(), cognitoId: manager.cognitoId };
                 }
             }
             propertyDataResp = {
-                ...restOfProp,
-                _id: typeof prop_Id === 'string' ? prop_Id : prop_Id.toString(),
-                id: prop.id,
-                location: locationData,
-                address: locationData?.address,
+                ...restOfProp, _id: typeof prop_Id === 'string' ? prop_Id : prop_Id.toString(),
+                id: prop.id, location: locationData, address: locationData?.address,
             };
         }
     }
 
-    if (finalApplicationRaw.tenantCognitoId) {
-        const tenant = await Tenant.findOne({ cognitoId: finalApplicationRaw.tenantCognitoId })
-            .select('-__v -createdAt -updatedAt -id -favorites -properties')
-            .lean()
-            .exec() as unknown as Omit<TenantDocumentLean, 'id' | 'favorites' | 'properties'> | null;
-        if (tenant) {
-            const { _id: tenant_Id, ...restOfTenant } = tenant;
-            tenantDataResp = {
-                ...restOfTenant,
-                _id: typeof tenant_Id === 'string' ? tenant_Id : tenant_Id.toString(),
-                cognitoId: tenant.cognitoId,
-            };
-        }
+    // Populate applicant data
+    if (finalApplicationRaw.applicantCognitoId && finalApplicationRaw.applicantType) {
+      let userDoc;
+      if (finalApplicationRaw.applicantType === 'tenant') {
+        userDoc = await Tenant.findOne({ cognitoId: finalApplicationRaw.applicantCognitoId })
+          .select('-__v -createdAt -updatedAt -id -favorites -properties') // Adjust fields
+          .lean().exec() as Omit<TenantDocumentLean, 'id' | 'favorites' | 'properties'> | null;
+      } else { // applicantType === 'buyer'
+        userDoc = await Buyer.findOne({ cognitoId: finalApplicationRaw.applicantCognitoId })
+          .select('-__v -createdAt -updatedAt -id') // Adjust fields
+          .lean().exec() as Omit<BuyerDocumentLean, 'id'> | null;
+      }
+      if (userDoc) {
+        const { _id: userId, ...restOfUser } = userDoc;
+        applicantDataResp = {
+          ...restOfUser, _id: typeof userId === 'string' ? userId : userId.toString(),
+          cognitoId: userDoc.cognitoId,
+        };
+      }
     }
 
-    if (finalApplicationRaw.leaseId) {
-        const lease = await Lease.findOne({ id: finalApplicationRaw.leaseId })
-            .lean()
-            .exec() as unknown as LeaseDocumentLean | null;
-        if (lease) {
-            const { _id: lease_Id, startDate: leaseStartDate, endDate: leaseEndDate, ...restOfLease } = lease;
-            const nextPayment = calculateNextPaymentDate(leaseStartDate as string | Date);
-            leaseDataResp = {
-                ...restOfLease,
-                _id: typeof lease_Id === 'string' ? lease_Id : lease_Id.toString(),
-                id: lease.id,
-                startDate: leaseStartDate ? new Date(leaseStartDate).toISOString() : undefined,
-                endDate: leaseEndDate ? new Date(leaseEndDate).toISOString() : undefined,
-                nextPaymentDate: nextPayment ? nextPayment.toISOString() : null,
-            };
-        }
+    // Populate lease data
+    // If a new lease was created, use `savedLease`, otherwise fetch from DB
+    const leaseToFormat = savedLease || (finalApplicationRaw.leaseId
+        ? await Lease.findOne({ id: finalApplicationRaw.leaseId }).lean().exec() as LeaseDocumentLean | null
+        : null);
+
+    if (leaseToFormat) {
+        const { _id: lease_Id, startDate: leaseStartDate, endDate: leaseEndDate, applicantCognitoId: leaseAppCognitoId, applicantType: leaseAppType, ...restOfLease } = leaseToFormat;
+        const nextPayment = calculateNextPaymentDate(leaseStartDate as string | Date);
+        leaseDataResp = {
+            ...restOfLease,
+            _id: typeof lease_Id === 'string' ? lease_Id : lease_Id.toString(),
+            id: leaseToFormat.id,
+            startDate: leaseStartDate ? new Date(leaseStartDate).toISOString() : undefined,
+            endDate: leaseEndDate ? new Date(leaseEndDate).toISOString() : undefined,
+            nextPaymentDate: nextPayment ? nextPayment.toISOString() : null,
+            applicantCognitoId: leaseAppCognitoId, // from LeaseDocumentLean
+            applicantType: leaseAppType,         // from LeaseDocumentLean
+        };
     }
+
 
     const responsePayload: FormattedApplicationResponse = {
         ...restOfFinalApp,
@@ -359,7 +299,8 @@ export async function PUT(
         id: finalApplicationRaw.id,
         applicationDate: finalAppDate ? new Date(finalAppDate).toISOString() : undefined,
         property: propertyDataResp,
-        tenant: tenantDataResp,
+        applicant: applicantDataResp,
+        applicantType: finalAppApplicantType,
         manager: managerDataResp,
         lease: leaseDataResp,
     };

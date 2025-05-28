@@ -263,41 +263,67 @@ export const api = createApi({
       },
     }),
 
+
+
+// In your api.ts file, within the `endpoints: (build) => ({ ... })` section:
+
+// Make sure Tenant and Buyer types are correctly imported or defined
+// import { Tenant, Property } from "@/types/prismaTypes";
+// Assuming Buyer type is defined locally or imported, and includes `id` and `favorites`
+
     addFavoriteProperty: build.mutation<
-      Tenant,
-      { cognitoId: string; propertyId: number }
+      Tenant | Buyer, // The mutation can return either a Tenant or a Buyer object
+      { cognitoId: string; propertyId: number; userRole: 'tenant' | 'buyer' } // Added userRole to args
     >({
-      query: ({ cognitoId, propertyId }) => ({
-        url: `tenants/${cognitoId}/favorites/${propertyId}`,
+      query: ({ cognitoId, propertyId, userRole }) => ({
+        // Dynamically construct the URL based on userRole
+        url: `${userRole}s/${cognitoId}/favorites/${propertyId}`, // e.g., "tenants/..." or "buyers/..."
         method: "POST",
       }),
-      invalidatesTags: (result) => result ? [
-        { type: "Tenants" as AppTag, id: result.id },
-        { type: "Properties" as AppTag, id: "LIST" },
-      ] : [],
+      invalidatesTags: (result, error, { userRole }) => {
+        // result is the Tenant or Buyer object returned by the API after adding the favorite
+        // { userRole } is destructured from the arguments passed to the mutation
+        if (result && result.id) {
+          const userSpecificTagType = userRole === "tenant" ? "Tenants" : "Buyers";
+          return [
+            { type: userSpecificTagType as AppTag, id: result.id }, // Invalidate specific tenant or buyer cache
+            { type: "Properties" as AppTag, id: "LIST" }, // May still be useful if favorite lists affect property list views
+          ];
+        }
+        return [{ type: "Properties" as AppTag, id: "LIST" }]; // Fallback
+      },
       async onQueryStarted(_, { queryFulfilled }) {
         await withToast(queryFulfilled, {
-          success: "Added to favorites!!",
+          success: "Added to favorites!", // Unified success message
           error: "Failed to add to favorites",
         });
       },
     }),
 
     removeFavoriteProperty: build.mutation<
-      Tenant,
-      { cognitoId: string; propertyId: number }
+      Tenant | Buyer, // The mutation can return either a Tenant or a Buyer object
+      { cognitoId: string; propertyId: number; userRole: 'tenant' | 'buyer' } // Added userRole to args
     >({
-      query: ({ cognitoId, propertyId }) => ({
-        url: `tenants/${cognitoId}/favorites/${propertyId}`,
+      query: ({ cognitoId, propertyId, userRole }) => ({
+        // Dynamically construct the URL based on userRole
+        url: `${userRole}s/${cognitoId}/favorites/${propertyId}`, // e.g., "tenants/..." or "buyers/..."
         method: "DELETE",
       }),
-      invalidatesTags: (result) => result ? [
-        { type: "Tenants" as AppTag, id: result.id },
-        { type: "Properties" as AppTag, id: "LIST" },
-      ] : [],
+      invalidatesTags: (result, error, { userRole }) => {
+        // result is the Tenant or Buyer object returned by the API after removing the favorite
+        // { userRole } is destructured from the arguments passed to the mutation
+        if (result && result.id) {
+          const userSpecificTagType = userRole === "tenant" ? "Tenants" : "Buyers";
+          return [
+            { type: userSpecificTagType as AppTag, id: result.id }, // Invalidate specific tenant or buyer cache
+            { type: "Properties" as AppTag, id: "LIST" },
+          ];
+        }
+        return [{ type: "Properties" as AppTag, id: "LIST" }]; // Fallback
+      },
       async onQueryStarted(_, { queryFulfilled }) {
         await withToast(queryFulfilled, {
-          success: "Removed from favorites!",
+          success: "Removed from favorites!", // Unified success message
           error: "Failed to remove from favorites.",
         });
       },
