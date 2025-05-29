@@ -8,23 +8,23 @@ import {
   useGetApplicationsQuery,
   useGetAuthUserQuery,
   useUpdateApplicationStatusMutation,
-} from "@/state/api"; // Assuming these hooks are generic enough or their underlying endpoints handle userType
+} from "@/state/api";
 import { CircleCheckBig, Download, File, Hospital } from "lucide-react";
 import Link from "next/link";
 import React, { useState } from "react";
 
-const LandlordApplications = () => { // Renamed component for clarity, though 'Applications' is also fine
+const LandlordApplications = () => {
   const { data: authUser } = useGetAuthUserQuery();
   const [activeTab, setActiveTab] = useState("all");
 
   const {
-    data: applications,
+    data: applicationsData, // Renamed to avoid conflict with 'applications' variable if used inside map
     isLoading,
     isError,
   } = useGetApplicationsQuery(
     {
       userId: authUser?.cognitoInfo?.userId,
-      userType: "landlord", // CHANGED: from "manager" to "landlord"
+      userType: "landlord",
     },
     {
       skip: !authUser?.cognitoInfo?.userId,
@@ -33,18 +33,18 @@ const LandlordApplications = () => { // Renamed component for clarity, though 'A
   const [updateApplicationStatus] = useUpdateApplicationStatusMutation();
 
   const handleStatusChange = async (id: number, status: string) => {
-    // Assuming this mutation can handle applications regardless of manager/landlord if 'id' is globally unique
-    // Or the backend API for updateApplicationStatus uses the authenticated user's context
     await updateApplicationStatus({ id, status });
   };
 
   if (isLoading) return <Loading />;
-  if (isError || !applications) return <div>Error fetching applications for Landlord</div>; // Minor text change for context
+  // Ensure applicationsData is treated as an array, even if it's undefined initially or on error.
+  // The error message below will be shown if isError is true or if applicationsData is null/undefined post-loading.
+  if (isError || !applicationsData) return <div>Error fetching applications for Landlord</div>;
 
-  const filteredApplications = applications?.filter((application) => {
-    if (activeTab === "all") return true;
-    return application.status.toLowerCase() === activeTab;
-  });
+  // Use applicationsData directly for filtering within tabs.
+  // If applicationsData might be undefined here despite the check above (e.g. due to query states),
+  // provide a default empty array.
+  const applications = applicationsData || [];
 
   return (
     <div className="dashboard-container">
@@ -63,18 +63,19 @@ const LandlordApplications = () => { // Renamed component for clarity, though 'A
           <TabsTrigger value="approved">Approved</TabsTrigger>
           <TabsTrigger value="denied">Denied</TabsTrigger>
         </TabsList>
-        {["all", "pending", "approved", "denied"].map((tab) => (
-          <TabsContent key={tab} value={tab} className="mt-5 w-full">
-            {filteredApplications
+        {["all", "pending", "approved", "denied"].map((tabValue) => (
+          <TabsContent key={tabValue} value={tabValue} className="mt-5 w-full">
+            {applications // Use the original (or defaulted to empty array) list of applications
               .filter(
                 (application) =>
-                  tab === "all" || application.status.toLowerCase() === tab
+                  // Filter applications based on the current tabValue for this TabsContent
+                  tabValue === "all" || application.status.toLowerCase() === tabValue
               )
               .map((application) => (
                 <ApplicationCard
                   key={application.id}
                   application={application}
-                  userType="landlord" // CHANGED: from "manager" to "landlord"
+                  userType="landlord"
                 >
                   <div className="flex justify-between gap-5 w-full pb-4 px-4">
                     {/* Colored Section Status */}
@@ -84,7 +85,7 @@ const LandlordApplications = () => { // Renamed component for clarity, though 'A
                           ? "bg-green-100"
                           : application.status === "Denied"
                           ? "bg-red-100"
-                          : "bg-yellow-100"
+                          : "bg-yellow-100" // Assuming "Pending" or other statuses map to yellow
                       }`}
                     >
                       <div className="flex flex-wrap items-center">
@@ -103,7 +104,7 @@ const LandlordApplications = () => { // Renamed component for clarity, though 'A
                               ? "text-green-800"
                               : application.status === "Denied"
                               ? "text-red-800"
-                              : "text-yellow-800"
+                              : "text-yellow-800" // For "Pending"
                           }`}
                         >
                           {application.status === "Approved" &&
@@ -119,7 +120,7 @@ const LandlordApplications = () => { // Renamed component for clarity, though 'A
                     {/* Right Buttons */}
                     <div className="flex gap-2">
                       <Link
-                        href={`/landlords/properties/${application.property.id}`} // CHANGED: from "/managers/" to "/landlords/"
+                        href={`/landlords/properties/${application.property.id}`}
                         className={`bg-white border border-gray-300 text-gray-700 py-2 px-4 
                           rounded-md flex items-center justify-center hover:bg-primary-700 hover:text-primary-50`}
                         scroll={false}
@@ -168,6 +169,15 @@ const LandlordApplications = () => { // Renamed component for clarity, though 'A
                   </div>
                 </ApplicationCard>
               ))}
+            {/* Optional: Add an empty state message if no applications match the filter for a tab */}
+            {applications.filter(
+              (application) =>
+                tabValue === "all" || application.status.toLowerCase() === tabValue
+            ).length === 0 && (
+              <div className="text-center p-4 text-gray-500">
+                No {tabValue === "all" ? "" : tabValue + " "}applications found.
+              </div>
+            )}
           </TabsContent>
         ))}
       </Tabs>
@@ -175,4 +185,4 @@ const LandlordApplications = () => { // Renamed component for clarity, though 'A
   );
 };
 
-export default LandlordApplications; // Renamed export
+export default LandlordApplications;
