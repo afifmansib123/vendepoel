@@ -2,7 +2,7 @@
 
 export const HighlightEnum = [
   'HighSpeedInternetAccess',
-  'WasherDryer',
+  'WasherDryer', // Note: 'WasherDryer' is also in AmenityEnum, ensure this is intended
   'AirConditioning',
   'Heating',
   'SmokeFree',
@@ -34,6 +34,8 @@ export const AmenityEnum = [
   'WiFi',
 ];
 
+// This PropertyTypeEnum is used for the SellerProperty model
+// and the "List Your Property for Sale" frontend page.
 export const PropertyTypeEnum = [
   'Rooms',
   'Tinyhouse',
@@ -41,8 +43,24 @@ export const PropertyTypeEnum = [
   'Villa',
   'Townhouse',
   'Cottage',
+  // You might consider adding more sale-specific types here if needed,
+  // e.g., 'SingleFamilyHome', 'Condo', 'Land', 'CommercialBuilding'
+  // but the current ones will work with the previous code.
 ];
 
+// --- ADDED ENUM for Seller Properties ---
+export const PropertySaleStatusEnumArray = [
+  'For Sale',
+  'Sale Pending',
+  'Sold',
+  'Coming Soon',
+  'Off Market',
+];
+// --------------------------------------
+
+// These enums were in your original file and are kept.
+// They were not directly used in the SellerProperty creation flow I provided,
+// but are preserved as they might be used elsewhere in your application.
 export const ApplicationStatusEnum = [
   'Pending',
   'Denied',
