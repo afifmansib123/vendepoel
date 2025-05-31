@@ -487,21 +487,21 @@ export const api = createApi({
     }),
 
     // --- START Landlord Endpoints (already added from previous step) ---
-    getLandlordProperties: build.query<Property[], string>({
-      query: (cognitoId) => `landlords/${cognitoId}/properties`,
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.map(({ id }) => ({ type: "Properties" as AppTag, id })),
-              { type: "Properties" as AppTag, id: "LIST" },
-            ]
-          : [{ type: "Properties" as AppTag, id: "LIST" }],
-      async onQueryStarted(_, { queryFulfilled }) {
-        await withToast(queryFulfilled, {
-          error: "Failed to load landlord properties.",
-        });
-      },
-    }),
+    getLandlordProperties: build.query<Property[], void>({
+  query: () => `seller-properties`,
+  providesTags: (result) =>
+    result
+      ? [
+          ...result.map(({ id }) => ({ type: "Properties" as AppTag, id })),
+          { type: "Properties" as AppTag, id: "LIST" },
+        ]
+      : [{ type: "Properties" as AppTag, id: "LIST" }],
+  async onQueryStarted(_, { queryFulfilled }) {
+    await withToast(queryFulfilled, {
+      error: "Failed to load landlord properties.",
+    });
+  },
+}),
 
     updateLandlordSettings: build.mutation<
       Landlord,

@@ -73,14 +73,16 @@ const Card = ({
           <div className="flex items-center mb-2">
             <Star className="w-4 h-4 text-yellow-400 mr-1" />
             <span className="font-semibold">
-              {property.averageRating.toFixed(1)}
+              {typeof property.averageRating === "number"
+                ? property.averageRating.toFixed(1)
+                : "N/A"}
             </span>
             <span className="text-gray-600 ml-1">
-              ({property.numberOfReviews} Reviews)
+              ({property.numberOfReviews ?? 0} Reviews)
             </span>
           </div>
           <p className="text-lg font-bold mb-3">
-            ${property.pricePerMonth.toFixed(0)}{" "}
+            ${Number(property.pricePerMonth || 0).toFixed(0)}{" "}
             <span className="text-gray-600 text-base font-normal"> /month</span>
           </p>
         </div>
@@ -88,15 +90,15 @@ const Card = ({
         <div className="flex justify-between items-center gap-4 text-gray-600 mt-5">
           <span className="flex items-center">
             <Bed className="w-5 h-5 mr-2" />
-            {property.beds} Bed
+            {property.beds ?? 0} Bed
           </span>
           <span className="flex items-center">
             <Bath className="w-5 h-5 mr-2" />
-            {property.baths} Bath
+            {property.baths ?? 0} Bath
           </span>
           <span className="flex items-center">
             <House className="w-5 h-5 mr-2" />
-            {property.squareFeet} sq ft
+            {property.squareFeet ?? 0} sq ft
           </span>
         </div>
       </div>

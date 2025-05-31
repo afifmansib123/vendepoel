@@ -246,3 +246,46 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message }, { status: 500 });
   }
 }
+
+export async function GET() {
+  await dbConnect();
+  try {
+    // Fetch all seller properties
+    const properties = await SellerProperty.find().lean();
+
+    // Get all referenced locations by their IDs
+    const locationIds = properties.map(p => p.locationId);
+    const locations = await Location.find({ id: { $in: locationIds } }).lean();
+
+    // Format each property with corresponding location
+    const response: CreatedSellerPropertyResponse[] = properties.map(property => {
+      const location = locations.find(loc => loc.id === property.locationId);
+
+      const formattedLocation: FormattedLocationForResponse = {
+        id: location?.id ?? -1,
+        address: location?.address ?? '',
+        city: location?.city ?? '',
+        state: location?.state ?? '',
+        country: location?.country ?? '',
+        postalCode: location?.postalCode ?? '',
+        coordinates: location?.coordinates
+          ? {
+              longitude: parseFloat(location.coordinates.split('(')[1]?.split(' ')[0] ?? '0'),
+              latitude: parseFloat(location.coordinates.split(' ')[1]?.replace(')', '') ?? '0'),
+            }
+          : null,
+      };
+
+      return {
+        ...property,
+        _id: property._id.toString(),
+        location: formattedLocation,
+      };
+    });
+
+    return NextResponse.json(response, { status: 200 });
+  } catch (error) {
+    console.error("Error fetching seller properties:", error);
+    return NextResponse.json({ message: "Failed to fetch seller properties." }, { status: 500 });
+  }
+}
