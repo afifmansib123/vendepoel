@@ -62,7 +62,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@types/lodash": "^4.17.15",
+    "@types/lodash": "^4.17.17",
     "@types/node": "^20.17.16",
     "@types/react": "^19",
     "@types/react-dom": "^19",
