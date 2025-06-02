@@ -3,7 +3,7 @@
 
 import React from "react";
 import { SellerProperty, SellerMarketplaceFilters } from "@/types/sellerMarketplaceTypes";
-import SellerPropertyCard from "@/components/SellerPropertyCard";
+import SellerPropertyCard from "@/components/SellerPropertyCard"; // Ensure path is correct
 
 interface SellerListingsProps {
   allProperties: SellerProperty[];
@@ -14,12 +14,26 @@ interface SellerListingsProps {
 const SellerListings: React.FC<SellerListingsProps> = ({ allProperties, filters, isLoading }) => {
 
   const filteredProperties = React.useMemo(() => {
-    if (isLoading || !allProperties) return [];
+    if (!allProperties) return []; // Handle case where allProperties might be initially undefined/null
+
     return allProperties.filter(property => {
-      if (filters.propertyType && property.propertyType !== filters.propertyType) {
+      // Location filtering
+      // Ensure property.location exists and has the country, state, city fields
+      if (filters.country && (!property.location || property.location.country !== filters.country)) {
         return false;
       }
-      if (filters.beds) {
+      if (filters.state && (!property.location || property.location.state !== filters.state)) {
+        return false;
+      }
+      if (filters.city && (!property.location || property.location.city !== filters.city)) {
+        return false;
+      }
+
+      // Other filters
+      if (filters.propertyType && filters.propertyType !== "any" && property.propertyType !== filters.propertyType) {
+        return false;
+      }
+      if (filters.beds && filters.beds !== "any") {
           const minBeds = parseInt(filters.beds, 10);
           if (property.beds < minBeds) return false;
       }
@@ -28,20 +42,9 @@ const SellerListings: React.FC<SellerListingsProps> = ({ allProperties, filters,
           if (minPrice !== null && property.salePrice < minPrice) return false;
           if (maxPrice !== null && property.salePrice > maxPrice) return false;
       }
-      // Client-side text search (simple)
-      if (filters.location && filters.location.trim() !== "") {
-        const searchTerm = filters.location.toLowerCase();
-        const inName = property.name.toLowerCase().includes(searchTerm);
-        const inAddress = property.location.address.toLowerCase().includes(searchTerm);
-        const inCity = property.location.city.toLowerCase().includes(searchTerm);
-        const inState = property.location.state.toLowerCase().includes(searchTerm);
-        if (!inName && !inAddress && !inCity && !inState) {
-            return false;
-        }
-      }
       return true;
     });
-  }, [allProperties, filters, isLoading]);
+  }, [allProperties, filters]); // Dependencies: allProperties and filters
 
   if (isLoading) {
     return (
@@ -56,22 +59,29 @@ const SellerListings: React.FC<SellerListingsProps> = ({ allProperties, filters,
      return <div className="p-6 text-center text-gray-500">No properties available at the moment.</div>;
   }
 
-  if (filteredProperties.length === 0) {
+  if (filteredProperties.length === 0 && !isLoading) { // Check !isLoading here
     return <div className="p-6 text-center text-gray-500">No properties match your current filters. Try adjusting your search.</div>;
   }
+
+  // Construct location string for display, more robustly
+  const locationParts: string[] = [];
+  if (filters.city) locationParts.push(filters.city);
+  if (filters.state) locationParts.push(filters.state);
+  if (filters.country) locationParts.push(filters.country);
+  const locationFilterString = locationParts.join(', ');
 
   return (
     <div className="w-full h-full">
       <h3 className="text-base px-4 py-3 font-semibold sticky top-0 bg-gray-50 z-10 border-b border-gray-200 text-gray-700">
-        {filteredProperties.length} Proper K{filteredProperties.length === 1 ? "y" : "ies"} Found
-        {filters.location && <span className="font-normal text-gray-600"> near "{filters.location}"</span>}
+        {filteredProperties.length} Propert{filteredProperties.length === 1 ? "y" : "ies"} Found
+        {locationFilterString && <span className="font-normal text-gray-600"> in {locationFilterString}</span>}
       </h3>
       <div className="p-3 md:p-4 space-y-4">
         {filteredProperties.map((property) => (
           <SellerPropertyCard
-            key={property._id}
+            key={property._id} // Assuming _id is the unique identifier
             property={property}
-            propertyLinkBase="/seller-marketplace"
+            propertyLinkBase="/seller-marketplace" // Or your actual link base
           />
         ))}
       </div>

@@ -1,0 +1,87 @@
+
+[
+  {
+    "name": "Thailand",
+    "code": "TH",
+    "provinces": [
+      {
+        "name": "Bangkok",
+        "cities": ["Bangkok Metropolis"]
+      },
+      {
+        "name": "Chiang Mai",
+        "cities": ["Chiang Mai City", "San Kamphaeng", "Hang Dong", "Mae Rim"]
+      },
+      {
+        "name": "Phuket",
+        "cities": ["Phuket Town", "Patong", "Kathu", "Chalong", "Rawai"]
+      },
+      {
+        "name": "Chon Buri",
+        "cities": ["Pattaya", "Chon Buri City", "Si Racha", "Bang Lamung", "Sattahip"]
+      },
+      {
+        "name": "Surat Thani",
+        "cities": ["Surat Thani City", "Ko Samui", "Ko Pha Ngan", "Ko Tao"]
+      },
+      {
+        "name": "Krabi",
+        "cities": ["Krabi Town", "Ao Nang", "Ko Lanta"]
+      },
+      {
+        "name": "Prachuap Khiri Khan",
+        "cities": ["Hua Hin", "Pran Buri"]
+      }
+    ]
+  },
+  {
+    "name": "Belgium",
+    "code": "BE",
+    "provinces": [
+      {
+        "name": "Brussels-Capital Region",
+        "cities": ["Brussels", "Anderlecht", "Schaerbeek", "Ixelles", "Uccle"]
+      },
+      {
+        "name": "Antwerp",
+        "cities": ["Antwerp", "Mechelen", "Turnhout", "Lier", "Geel"]
+      },
+      {
+        "name": "East Flanders",
+        "cities": ["Ghent", "Aalst", "Sint-Niklaas", "Dendermonde", "Oudenaarde"]
+      },
+      {
+        "name": "Flemish Brabant",
+        "cities": ["Leuven", "Vilvoorde", "Halle", "Tienen", "Diest"]
+      },
+      {
+        "name": "Limburg",
+        "cities": ["Hasselt", "Genk", "Beringen", "Sint-Truiden", "Tongeren"]
+      },
+      {
+        "name": "West Flanders",
+        "cities": ["Bruges", "Kortrijk", "Ostend", "Roeselare", "Ypres"]
+      },
+      {
+        "name": "Hainaut",
+        "cities": ["Charleroi", "Mons", "Tournai", "La Louvière", "Mouscron"]
+      },
+      {
+        "name": "Liège",
+        "cities": ["Liège", "Verviers", "Seraing", "Huy", "Eupen"]
+      },
+      {
+        "name": "Luxembourg (BE)",
+        "cities": ["Arlon", "Bastogne", "Marche-en-Famenne", "Virton", "Neufchâteau"]
+      },
+      {
+        "name": "Namur",
+        "cities": ["Namur", "Dinant", "Ciney", "Gembloux", "Philippeville"]
+      },
+      {
+        "name": "Walloon Brabant",
+        "cities": ["Wavre", "Waterloo", "Nivelles", "Braine-l'Alleud", "Ottignies-Louvain-la-Neuve"]
+      }
+    ]
+  }
+]

@@ -1,80 +1,69 @@
 // src/types/sellerMarketplaceTypes.ts
 
-// Matches the API response for GET /api/seller-properties and GET /api/seller-properties/[id]
-
-export interface SellerPropertyLocationCoordinates {
-  longitude: number;
-  latitude: number;
-}
-
+// Define the structure of the location object within a SellerProperty
+// Ensure this matches EXACTLY how your API returns location data for each property
 export interface SellerPropertyLocation {
-  id: number;
   address: string;
   city: string;
-  state: string;
+  state: string; // This corresponds to Province/Region
   country: string;
   postalCode: string;
-  coordinates: SellerPropertyLocationCoordinates | null;
+  // You might have coordinates here too if your property data includes them
+  // coordinates?: { lat: number; lng: number };
 }
 
-export interface SellerProperty { // Renamed from SellerPropertyFromAPI to avoid potential naming conflicts
-  _id: string;
-  id: number; // Numeric ID
+export interface SellerProperty {
+  _id: string; // Or just string, depending on your DB ObjectId handling
   name: string;
   description: string;
   salePrice: number;
   propertyType: string;
-  propertyStatus: string;
   beds: number;
-  baths: number;
-  squareFeet: number;
-  yearBuilt?: number | null;
-  HOAFees?: number | null;
-  amenities: string[];
-  highlights: string[];
-  openHouseDates?: string[];
-  sellerNotes?: string;
-  allowBuyerApplications: boolean;
-  preferredFinancingInfo?: string;
-  insuranceRecommendation?: string;
-  sellerCognitoId: string;
+  baths: number; // Assuming you have this
+  squareFeet: number; // Assuming you have this
   photoUrls: string[];
-  agreementDocumentUrl?: string;
-  location: SellerPropertyLocation;
-  postedDate: string; // Date as string
-  createdAt: string;  // Date as string
-  updatedAt: string;  // Date as string
-  buyerInquiries?: any[];
+  location: SellerPropertyLocation; // Use the interface defined above
+  // Add any other fields your SellerPropertyCard or map might need
+  // e.g., yearBuilt, HOAFees, amenities, highlights etc.
 }
 
-// For managing filter state within the seller-marketplace page
+// Updated filters interface
 export interface SellerMarketplaceFilters {
-  location: string; // Text search for location
-  coordinates: [number, number] | null; // [lng, lat]
+  country?: string | null;
+  state?: string | null;
+  city?: string | null;
   salePriceRange: [number | null, number | null];
-  propertyType: string | null; // e.g., 'SingleFamily', 'Condo', or null for 'any'
-  beds: string | null; // e.g., '1', '2', or null for 'any beds' (representing minimum)
-  // Add other simple filters if needed, e.g., baths
-  [key: string]: any; // For flexibility with URL params
+  propertyType?: string | null;
+  beds?: string | null;
 }
 
+// Updated initial filters
 export const initialSellerMarketplaceFilters: SellerMarketplaceFilters = {
-  location: "",
-  coordinates: null,
+  country: null,
+  state: null,
+  city: null,
   salePriceRange: [null, null],
-  propertyType: null, // 'any'
-  beds: null,         // 'any'
+  propertyType: null, // Represents "any"
+  beds: null,       // Represents "any"
 };
 
-// Helper to clean filter objects, removing null/empty/default values for cleaner URLs
+// Updated function to clean filters for URL
 export const cleanSellerFiltersForURL = (filters: SellerMarketplaceFilters): Record<string, string> => {
   const cleaned: Record<string, string> = {};
-  if (filters.location) cleaned.location = filters.location;
-  if (filters.coordinates) cleaned.coordinates = filters.coordinates.join(',');
-  if (filters.salePriceRange && (filters.salePriceRange[0] !== null || filters.salePriceRange[1] !== null)) {
-    cleaned.salePriceRange = `${filters.salePriceRange[0] === null ? '' : filters.salePriceRange[0]},${filters.salePriceRange[1] === null ? '' : filters.salePriceRange[1]}`;
+
+  if (filters.country) cleaned.country = filters.country;
+  if (filters.state) cleaned.state = filters.state;
+  if (filters.city) cleaned.city = filters.city;
+
+  if (filters.salePriceRange) {
+    const [min, max] = filters.salePriceRange;
+    // Only add to URL if at least one value is present
+    if (min !== null || max !== null) {
+      cleaned.salePriceRange = `${min === null ? '' : min},${max === null ? '' : max}`;
+    }
   }
-  if (filters.propertyType && filters.propertyType !== 'any') cleaned.propertyType = filters.propertyType;
-  if (filters.beds && filters.beds !== 'any') cleaned.beds = filters.beds;
+  if (filters.propertyType && filters.propertyType !== "any") cleaned.propertyType = filters.propertyType;
+  if (filters.beds && filters.beds !== "any") cleaned.beds = filters.beds;
+
   return cleaned;
 };

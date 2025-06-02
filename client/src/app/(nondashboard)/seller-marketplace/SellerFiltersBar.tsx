@@ -2,11 +2,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useRouter, usePathname } from "next/navigation";
 import { debounce } from "lodash";
-import { Input } from "@/components/ui/input"; // Assuming shadcn/ui
-import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button"; // Not used after removing search button, can be removed if no other use
 import {
   Select,
   SelectContent,
@@ -14,15 +12,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SellerMarketplaceFilters } from "@/types/sellerMarketplaceTypes";
+import { SellerMarketplaceFilters } from "@/types/sellerMarketplaceTypes"; // Adjust path if necessary
+
+// Define location data structures locally or import if shared
+interface Province {
+  name: string;
+  cities: string[];
+}
+
+interface Country {
+  name: string;
+  code: string;
+  provinces: Province[];
+}
 
 const SellerPropertyTypeOptions: Record<string, string> = {
   any: "Any Type",
-  SingleFamily: "Single Family",
-  Condo: "Condo",
+  "Condominium / Apartment": "Condo/Apartment",
+  "House / Villa": "House/Villa",
   Townhouse: "Townhouse",
-  MultiFamily: "Multi-Family",
   Land: "Land",
+  "Commercial Property (Shop/Office/Warehouse)": "Commercial",
+  // Add more based on your PROPERTY_TYPES_OPTIONS from the form page
   Other: "Other",
 };
 
@@ -32,6 +43,7 @@ const BedOptions: Record<string, string> = {
   "2": "2+ Beds",
   "3": "3+ Beds",
   "4": "4+ Beds",
+  "5": "5+ Beds", // Added for more options
 };
 
 interface SellerFiltersBarProps {
@@ -40,144 +52,244 @@ interface SellerFiltersBarProps {
 }
 
 const SellerFiltersBar: React.FC<SellerFiltersBarProps> = ({ onFiltersChange, initialFilters }) => {
-  const router = useRouter();
-  const pathname = usePathname();
+  // Location state
+  const [allCountriesData, setAllCountriesData] = useState<Country[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<string>(initialFilters.country || "");
+  const [currentProvinces, setCurrentProvinces] = useState<Province[]>([]);
+  const [selectedProvince, setSelectedProvince] = useState<string>(initialFilters.state || "");
+  const [currentCities, setCurrentCities] = useState<string[]>([]);
+  const [selectedCity, setSelectedCity] = useState<string>(initialFilters.city || "");
 
-  const [locationInput, setLocationInput] = useState(initialFilters.location || "");
+  // Other filter states
   const [minPriceInput, setMinPriceInput] = useState<string>(initialFilters.salePriceRange?.[0]?.toString() || "");
   const [maxPriceInput, setMaxPriceInput] = useState<string>(initialFilters.salePriceRange?.[1]?.toString() || "");
   const [propertyTypeSelect, setPropertyTypeSelect] = useState(initialFilters.propertyType || "any");
   const [bedsSelect, setBedsSelect] = useState(initialFilters.beds || "any");
 
-  // Sync local state if initialFilters change (e.g. from URL on back/forward)
+  // Fetch location data on component mount
   useEffect(() => {
-    setLocationInput(initialFilters.location || "");
+    const fetchLocations = async () => {
+      try {
+        const response = await fetch('/locations.json');
+        if (!response.ok) {
+          console.error('Failed to fetch location data. Status:', response.status);
+          throw new Error('Failed to fetch location data');
+        }
+        const data: Country[] = await response.json();
+        setAllCountriesData(data);
+      } catch (error) {
+        console.error("Error fetching locations:", error);
+      }
+    };
+    fetchLocations();
+  }, []);
+
+  // Sync local state with initialFilters when they change or location data loads
+  useEffect(() => {
     setMinPriceInput(initialFilters.salePriceRange?.[0]?.toString() || "");
     setMaxPriceInput(initialFilters.salePriceRange?.[1]?.toString() || "");
     setPropertyTypeSelect(initialFilters.propertyType || "any");
     setBedsSelect(initialFilters.beds || "any");
-  }, [initialFilters]);
 
-  const triggerFilterChange = useCallback(
-    debounce(async (updatedLocalFilters: Partial<SellerMarketplaceFilters>) => {
-      let newCoordinates: [number, number] | null = initialFilters.coordinates;
+    const initialCountryName = initialFilters.country || "";
+    setSelectedCountry(initialCountryName);
 
-      // If location text changed, geocode it
-      if (updatedLocalFilters.location !== undefined && updatedLocalFilters.location !== initialFilters.location) {
-        if (updatedLocalFilters.location && updatedLocalFilters.location.trim() !== "") {
-          try {
-            const response = await fetch(
-              `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-                updatedLocalFilters.location
-              )}.json?access_token=${process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}&fuzzyMatch=true&types=place,postcode,locality,neighborhood,address,poi`
-            );
-            const data = await response.json();
-            if (data.features && data.features.length > 0) {
-              newCoordinates = data.features[0].center as [number, number];
+    if (allCountriesData.length > 0) { // Ensure country data is loaded
+      if (initialCountryName) {
+        const countryData = allCountriesData.find(c => c.name === initialCountryName);
+        if (countryData) {
+          setCurrentProvinces(countryData.provinces);
+          const initialProvinceName = initialFilters.state || "";
+          setSelectedProvince(initialProvinceName);
+
+          if (initialProvinceName) {
+            const provinceData = countryData.provinces.find(p => p.name === initialProvinceName);
+            if (provinceData) {
+              setCurrentCities(provinceData.cities);
+              setSelectedCity(initialFilters.city || "");
             } else {
-              newCoordinates = null; // No results, clear coordinates
+              setCurrentCities([]);
+              setSelectedCity("");
             }
-          } catch (err) {
-            console.error("Error geocoding location:", err);
-            newCoordinates = null; // Error, clear coordinates
+          } else { // No initial province, clear city
+            setCurrentCities([]);
+            setSelectedCity("");
           }
-        } else {
-            newCoordinates = null; // Empty location input, clear coordinates
+        } else { // Initial country not found in data, clear dependent
+          setCurrentProvinces([]);
+          setSelectedProvince("");
+          setCurrentCities([]);
+          setSelectedCity("");
         }
+      } else { // No initial country, clear all dependent
+        setCurrentProvinces([]);
+        setSelectedProvince("");
+        setCurrentCities([]);
+        setSelectedCity("");
       }
+    }
+  }, [initialFilters, allCountriesData]); // Rerun if initialFilters or allCountriesData change
 
-      const finalFilters: SellerMarketplaceFilters = {
-        location: updatedLocalFilters.location ?? initialFilters.location,
-        coordinates: newCoordinates, // Use newly geocoded or existing if location didn't change
-        salePriceRange: [
-            updatedLocalFilters.salePriceRange?.[0] ?? initialFilters.salePriceRange[0],
-            updatedLocalFilters.salePriceRange?.[1] ?? initialFilters.salePriceRange[1],
-        ],
-        propertyType: updatedLocalFilters.propertyType ?? initialFilters.propertyType,
-        beds: updatedLocalFilters.beds ?? initialFilters.beds,
-      };
-      onFiltersChange(finalFilters);
+  // Effect for when 'selectedCountry' changes
+  useEffect(() => {
+    if (selectedCountry && allCountriesData.length > 0) {
+      const countryData = allCountriesData.find(c => c.name === selectedCountry);
+      setCurrentProvinces(countryData ? countryData.provinces : []);
+    } else {
+      setCurrentProvinces([]);
+    }
+    // Reset dependent selections when country changes if not from initial load
+    if (selectedProvince || selectedCity) { // Avoid resetting if initial load is setting them
+      setSelectedProvince("");
+      setCurrentCities([]);
+      setSelectedCity("");
+    }
+  }, [selectedCountry, allCountriesData]);
+
+  // Effect for when 'selectedProvince' changes
+  useEffect(() => {
+    if (selectedProvince && selectedCountry && allCountriesData.length > 0) {
+      const countryData = allCountriesData.find(c => c.name === selectedCountry);
+      if (countryData) {
+        const provinceData = countryData.provinces.find(p => p.name === selectedProvince);
+        setCurrentCities(provinceData ? provinceData.cities : []);
+      } else {
+        setCurrentCities([]);
+      }
+    } else {
+      setCurrentCities([]);
+    }
+    if (selectedCity) { // Avoid resetting if initial load is setting it
+       setSelectedCity("");
+    }
+  }, [selectedProvince, selectedCountry, allCountriesData]);
+
+  // Debounced filter change trigger
+  const triggerFilterChange = useCallback(
+    debounce((filtersToApply: SellerMarketplaceFilters) => {
+      onFiltersChange(filtersToApply);
     }, 700),
-  [initialFilters.coordinates, initialFilters.location, initialFilters.salePriceRange, initialFilters.propertyType, initialFilters.beds, onFiltersChange]
-);
+    [onFiltersChange] // onFiltersChange should be stable
+  );
 
-
+  // Effect to call triggerFilterChange when any filter state changes
   useEffect(() => {
     const currentPriceRange: [number | null, number | null] = [
-        minPriceInput === "" ? null : Number(minPriceInput),
-        maxPriceInput === "" ? null : Number(maxPriceInput),
+      minPriceInput === "" ? null : Number(minPriceInput),
+      maxPriceInput === "" ? null : Number(maxPriceInput),
     ];
 
-    triggerFilterChange({
-      location: locationInput,
+    const filtersToApply: SellerMarketplaceFilters = {
+      country: selectedCountry || null,
+      state: selectedProvince || null,
+      city: selectedCity || null,
       salePriceRange: currentPriceRange,
       propertyType: propertyTypeSelect === "any" ? null : propertyTypeSelect,
       beds: bedsSelect === "any" ? null : bedsSelect,
-    });
-  }, [locationInput, minPriceInput, maxPriceInput, propertyTypeSelect, bedsSelect, triggerFilterChange]);
+    };
+    triggerFilterChange(filtersToApply);
+  }, [
+    selectedCountry,
+    selectedProvince,
+    selectedCity,
+    minPriceInput,
+    maxPriceInput,
+    propertyTypeSelect,
+    bedsSelect,
+    triggerFilterChange,
+  ]);
 
-
-  const handleLocationSearchClick = () => {
-     // Trigger immediate geocoding and filter update
-    triggerFilterChange.cancel(); // Cancel any pending debounced calls
-    triggerFilterChange({ location: locationInput }); // Pass only location to re-trigger geocoding
-  };
-  
-  const handleLocationKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleLocationSearchClick();
-    }
+  const handleSelectChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string, anyValue: string) => {
+    setter(value === anyValue ? "" : value);
   };
 
   return (
-    <div className="flex flex-wrap justify-start items-center w-full py-3 px-2 md:px-4 bg-white border-b border-gray-200 gap-3 sticky top-0 z-20 shadow-sm">
-      {/* Search Location */}
-      <div className="flex items-center">
-        <Input
-          placeholder="City, Address, Zip..."
-          value={locationInput}
-          onChange={(e) => setLocationInput(e.target.value)}
-          onKeyPress={handleLocationKeyPress}
-          className="w-40 sm:w-48 md:w-56 rounded-l-lg rounded-r-none border-gray-300 h-10 focus:ring-primary-500 focus:border-primary-500"
-        />
-        <Button
-          onClick={handleLocationSearchClick}
-          variant="outline"
-          className="rounded-r-lg rounded-l-none border-l-0 border-gray-300 h-10 px-3 hover:bg-gray-50"
-          aria-label="Search location"
-        >
-          <Search className="w-4 h-4 text-gray-600" />
-        </Button>
-      </div>
+    <div className="flex flex-col sm:flex-row flex-wrap justify-start items-center w-full py-3 px-2 md:px-4 bg-white border-b border-gray-200 gap-2 md:gap-3 sticky top-0 z-20 shadow-sm">
+      {/* Country Select */}
+      <Select
+        value={selectedCountry || "any-country"}
+        onValueChange={(value) => handleSelectChange(setSelectedCountry, value, "any-country")}
+      >
+        <SelectTrigger className="w-full sm:w-auto min-w-[130px] md:min-w-[150px] rounded-lg border-gray-300 h-10 text-sm focus:ring-primary-500 focus:border-primary-500">
+          <SelectValue placeholder="Country" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="any-country">Any Country</SelectItem>
+          {allCountriesData.map((country) => (
+            <SelectItem key={country.code} value={country.name}>
+              {country.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* State/Province Select */}
+      <Select
+        value={selectedProvince || "any-province"}
+        onValueChange={(value) => handleSelectChange(setSelectedProvince, value, "any-province")}
+        disabled={!selectedCountry || currentProvinces.length === 0}
+      >
+        <SelectTrigger className="w-full sm:w-auto min-w-[130px] md:min-w-[160px] rounded-lg border-gray-300 h-10 text-sm focus:ring-primary-500 focus:border-primary-500">
+          <SelectValue placeholder="State/Province" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="any-province">Any State/Province</SelectItem>
+          {currentProvinces.map((province) => (
+            <SelectItem key={province.name} value={province.name}>
+              {province.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* City Select */}
+      <Select
+        value={selectedCity || "any-city"}
+        onValueChange={(value) => handleSelectChange(setSelectedCity, value, "any-city")}
+        disabled={!selectedProvince || currentCities.length === 0}
+      >
+        <SelectTrigger className="w-full sm:w-auto min-w-[130px] md:min-w-[160px] rounded-lg border-gray-300 h-10 text-sm focus:ring-primary-500 focus:border-primary-500">
+          <SelectValue placeholder="City" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="any-city">Any City</SelectItem>
+          {currentCities.map((cityName) => (
+            <SelectItem key={cityName} value={cityName}>
+              {cityName}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {/* Price Range Inputs */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 w-full sm:w-auto">
         <Input
           type="number"
           placeholder="Min Price"
           value={minPriceInput}
           onChange={(e) => setMinPriceInput(e.target.value)}
           min="0"
-          className="w-24 md:w-28 rounded-lg border-gray-300 h-10 text-sm focus:ring-primary-500 focus:border-primary-500"
+          className="w-1/2 sm:w-24 md:w-28 rounded-lg border-gray-300 h-10 text-sm focus:ring-primary-500 focus:border-primary-500"
+          aria-label="Minimum price"
         />
-        <span className="text-gray-400">-</span>
+        <span className="text-gray-400 px-1">-</span>
         <Input
           type="number"
           placeholder="Max Price"
           value={maxPriceInput}
           onChange={(e) => setMaxPriceInput(e.target.value)}
           min="0"
-          className="w-24 md:w-28 rounded-lg border-gray-300 h-10 text-sm focus:ring-primary-500 focus:border-primary-500"
+          className="w-1/2 sm:w-24 md:w-28 rounded-lg border-gray-300 h-10 text-sm focus:ring-primary-500 focus:border-primary-500"
+          aria-label="Maximum price"
         />
       </div>
-
 
       {/* Property Type */}
       <Select
         value={propertyTypeSelect}
         onValueChange={(value) => setPropertyTypeSelect(value)}
       >
-        <SelectTrigger className="w-32 md:w-36 rounded-lg border-gray-300 h-10 text-sm focus:ring-primary-500 focus:border-primary-500">
+        <SelectTrigger className="w-full sm:w-auto min-w-[130px] md:min-w-[140px] rounded-lg border-gray-300 h-10 text-sm focus:ring-primary-500 focus:border-primary-500">
           <SelectValue placeholder="Property Type" />
         </SelectTrigger>
         <SelectContent>
@@ -192,7 +304,7 @@ const SellerFiltersBar: React.FC<SellerFiltersBarProps> = ({ onFiltersChange, in
           value={bedsSelect}
           onValueChange={(value) => setBedsSelect(value)}
         >
-          <SelectTrigger className="w-28 md:w-32 rounded-lg border-gray-300 h-10 text-sm focus:ring-primary-500 focus:border-primary-500">
+          <SelectTrigger className="w-full sm:w-auto min-w-[110px] md:min-w-[120px] rounded-lg border-gray-300 h-10 text-sm focus:ring-primary-500 focus:border-primary-500">
             <SelectValue placeholder="Beds" />
           </SelectTrigger>
           <SelectContent>
