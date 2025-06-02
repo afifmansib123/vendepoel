@@ -38,18 +38,6 @@ const LandlordProperties = () => {
         title="My Properties"
         subtitle="View and manage your property listings as a landlord"
       />
-
-      {/* Optional: Add a button to create new properties */}
-      <div className="mb-6 text-right">
-        <button
-          onClick={() => { /* Logic to navigate to add property page */ alert("Navigate to Add Property Page"); }}
-          className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        >
-          <PlusCircle size={20} className="mr-2" />
-          List New Property
-        </button>
-      </div>
-
       {landlordProperties && landlordProperties.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6"> {/* Adjusted xl breakpoint */}
           {landlordProperties.map((property) => (
@@ -62,7 +50,12 @@ const LandlordProperties = () => {
         </div>
       ) : (
         <div className="text-center py-12">
-          <Building size={64} className="mx-auto text-gray-400 mb-4" />
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400 mb-4"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"/>
           <h3 className="text-xl font-semibold text-gray-700 mb-2">
             No Properties Yet
           </h3>

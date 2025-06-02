@@ -34,8 +34,34 @@ const PROPERTY_TYPES_OPTIONS = [
   "Studio Apartment", "Mixed-Use Property", "Serviced Apartment", "Bungalow",
   "Penthouse", "Other Residential", "Other Commercial",
 ];
-const AMENITIES_OPTIONS = [ /* ... amenities ... */ ];
-const HIGHLIGHTS_OPTIONS = [ /* ... highlights ... */ ];
+const AMENITIES_OPTIONS = [ "Swimming Pool", "Fitness Center/Gym", "Covered Parking", "Underground Parking",
+  "24/7 Security", "CCTV", "Elevator", "Garden / Green Space", "Pet-friendly",
+  "Air Conditioning (Central)", "Air Conditioning (Split-unit)", "Balcony",
+  "Terrace", "Rooftop Terrace/Lounge", "High-speed Internet Access",
+  "In-unit Laundry Hookup", "Communal Laundry Facility", "Co-working Space / Business Center",
+  "Shuttle Service (e.g., to BTS/MRT in TH)", "Sauna / Steam Room",
+  "Kids Playground / Play Area", "On-site Convenience Store/Shop", "Keycard Access System",
+  "Bicycle Storage (Common in BE)", "Cellar / Private Storage Room (Common in BE)",
+  "Energy Efficient Appliances/Features", "Central Heating (Common in BE)",
+  "Double Glazing Windows", "Fireplace", "Wheelchair Accessible", "Smart Home Features",
+  "Sea View / River View", "City View", "Mountain View", "Fully Furnished",
+  "Partially Furnished", "Unfurnished",];
+const HIGHLIGHTS_OPTIONS = ["Prime Location / Sought-After Area", "Newly Renovated / Modern Interior",
+  "Quiet and Peaceful Neighborhood", "Excellent Public Transport Links",
+  "Near BTS/MRT Station (TH)", "Near Tram/Metro/Bus Stop (BE/General)",
+  "Bright and Airy / Abundant Natural Light", "Spacious Rooms / Open Floor Plan",
+  "Contemporary/Modern Design", "Classic/Traditional Charm", "High Ceilings",
+  "Ample Storage Space", "Strong Investment Potential / Good ROI", "Move-in Ready Condition",
+  "Panoramic / Stunning Views", "Waterfront Property (River/Canal/Sea)",
+  "Near International School(s)", "Close to Major Hospitals/Clinics",
+  "Beachfront / Easy Access to Beach (TH)", "Access to Golf Course(s)",
+  "Expat-Friendly Community/Area", "Low Common Area Fees / HOA Dues",
+  "Close to EU Institutions (Brussels, BE)", "Historic Building / Property with Character",
+  "South-facing Garden/Terrace (Valued in BE)", "Good Energy Performance Certificate (EPC)",
+  "Proximity to Parks / Green Spaces", "Corner Unit / End Unit (More Privacy/Light)",
+  "Top Floor Unit (Views/Quiet)", "Ground Floor Unit with Private Garden Access",
+  "Gated Community / Secure Compound", "Ideal for Families", "Perfect for Professionals/Couples",
+  "Pet-Friendly Building/Community Rules",];
 
 interface SellerPropertyFormData {
   name: string;

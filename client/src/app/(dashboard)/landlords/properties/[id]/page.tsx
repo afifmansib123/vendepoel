@@ -2,58 +2,43 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowLeft,
   MapPin,
   BedDouble,
   Bath,
   Ruler,
-  CalendarDays,
-  Tag,
-  Info,
-  FileText,
-  DollarSign,
-  Home,
-  ImageIcon,
-  CircleCheck,
-  Briefcase,
-  Building2,
-  ListChecks,
-  Newspaper,
-  Users,
-  Handshake,
-  Library,
-  ShieldAlert,
-  AlertTriangle,
-  Eye, // For View Count or Inquiries (placeholder)
-  MessageSquare, // For Contact Seller / Inquire
+  Star,
+  Phone,
+  HelpCircle,
+  ImageIcon, // For placeholder image
+} from "lucide-react";
+import {
+  ChevronLeft, // For custom image preview
+  ChevronRight, // For custom image preview
 } from "lucide-react";
 
-import Header from "@/components/Header";
+
 import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "@/components/ui/carousel";
-import { Separator } from "@/components/ui/separator";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+} from "@/components/ui/carousel"; // For the top image carousel
+
+// Components from the "zip file" (initial user provided files)
+import ContactWidget from "@/app/(nondashboard)/search/[id]/ContactWidget"; // Adjusted path
+import ApplicationModal from "@/app/(nondashboard)/search/[id]/ApplicationModal"; // Adjusted path
+import { useGetAuthUserQuery } from "@/state/api";
 
 // Define the expected shape of the fetched property data
-// This should match SingleSellerPropertyResponse from your API
 interface SellerPropertyDetail {
   _id: string;
   id: number;
@@ -75,9 +60,9 @@ interface SellerPropertyDetail {
   preferredFinancingInfo?: string;
   insuranceRecommendation?: string;
   sellerCognitoId: string;
-  photoUrls: string[];
+  photoUrls: string[]; // This will be used for the top carousel
   agreementDocumentUrl?: string;
-  postedDate: string; // Dates will be strings from JSON
+  postedDate: string;
   createdAt: string;
   updatedAt: string;
   buyerInquiries?: any[];
@@ -90,410 +75,310 @@ interface SellerPropertyDetail {
     postalCode?: string;
     coordinates: { longitude: number; latitude: number } | null;
   } | null;
+  // Mocked/assumed fields, ensure they exist in your actual data
+  averageRating?: number;
+  numberOfReviews?: number;
+  applicationFee?: number;
+  securityDeposit?: number;
+  isPetsAllowed?: boolean;
+  isParkingIncluded?: boolean;
 }
+
+const HighlightVisuals: Record<string, { icon: React.ElementType }> = {
+  "Smoke Free": { icon: HelpCircle }, // Replace with actual icon
+  DEFAULT: { icon: Star },
+};
+
 
 const SellerPropertyDetailsPage = () => {
   const params = useParams();
   const router = useRouter();
-  const propertyId = params.id as string; // Will be string from params
+  const propertyIdParams = params.id as string;
 
   const [property, setProperty] = useState<SellerPropertyDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // ... other imports
+
+// Inside the SellerPropertyDetailsPage component function:
+// Add this state for the image preview logic
+const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+// Handlers for the custom image preview
+const handlePrevImage = () => {
+  if (property && property.photoUrls.length > 0) {
+    setCurrentImageIndex((prev) => (prev === 0 ? property.photoUrls.length - 1 : prev - 1));
+  }
+};
+
+const handleNextImage = () => {
+  if (property && property.photoUrls.length > 0) {
+    setCurrentImageIndex((prev) => (prev === property.photoUrls.length - 1 ? 0 : prev + 1));
+  }
+};
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { data: authUser } = useGetAuthUserQuery();
+  const propertyIdForModal = Number(property?.id);
+
   useEffect(() => {
-    if (!propertyId || isNaN(Number(propertyId))) {
+    if (!propertyIdParams || isNaN(Number(propertyIdParams))) {
       setError("Invalid Property ID.");
       setIsLoading(false);
       return;
     }
-
     const fetchPropertyDetails = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/seller-properties/${propertyId}`);
+        const response = await fetch(`/api/seller-properties/${propertyIdParams}`);
         if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error("Property not found.");
-          }
+          if (response.status === 404) throw new Error("Property not found.");
           throw new Error(`Failed to fetch property: ${response.statusText}`);
         }
         const data: SellerPropertyDetail = await response.json();
         setProperty(data);
       } catch (err: any) {
-        console.error("Error fetching property details:", err);
         setError(err.message || "An unknown error occurred.");
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchPropertyDetails();
-  }, [propertyId]);
+  }, [propertyIdParams]);
 
-  if (isLoading) return <Loading />;
+  if (isLoading) return <div className="flex justify-center items-center min-h-screen"><Loading /></div>;
+  if (error) return <div className="flex flex-col items-center justify-center min-h-screen p-6"><h2 className="text-2xl font-semibold mb-2 text-red-600">Error</h2><p className="text-red-500 mb-6">{error}</p><Button onClick={() => router.back()}>Go Back</Button></div>;
+  if (!property) return <div className="flex flex-col items-center justify-center min-h-screen p-6"><h2 className="text-2xl font-semibold mb-2">Not Found</h2><p className="text-gray-600 mb-6">Property not found.</p><Button onClick={() => router.push("/dashboard/landlords/properties")}>My Properties</Button></div>;
 
-  if (error) {
-    return (
-      <div className="dashboard-container flex flex-col items-center justify-center min-h-[calc(100vh-100px)]">
-        <AlertTriangle className="w-16 h-16 text-red-500 mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">Error Loading Property</h2>
-        <p className="text-red-500 mb-6">{error}</p>
-        <Button onClick={() => router.back()}>Go Back</Button>
-      </div>
-    );
-  }
-
-  if (!property) {
-    // This case should ideally be caught by the 404 in fetch, but as a fallback
-    return (
-      <div className="dashboard-container flex flex-col items-center justify-center min-h-[calc(100vh-100px)]">
-        <AlertTriangle className="w-16 h-16 text-yellow-500 mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">Property Not Found</h2>
-        <p className="text-gray-600 mb-6">
-          The property you are looking for does not exist or may have been
-          removed.
-        </p>
-        <Button onClick={() => router.push("/")}>Go to Homepage</Button>{" "}
-        {/* Adjust link as needed */}
-      </div>
-    );
-  }
-
-  const fullAddress = property.location
-    ? `${property.location.address || ""}${
-        property.location.address ? ", " : ""
-      }${property.location.city || ""}${property.location.city ? ", " : ""}${
-        property.location.state || ""
-      }${property.location.state ? " " : ""}${
-        property.location.postalCode || ""
-      }`
-        .trim()
-        .replace(/,$/, "")
-    : "Address not available";
+  const locationString = property.location ? `${property.location.city || ""}${property.location.city && property.location.state ? ", " : ""}${property.location.state || ""}${ (property.location.city || property.location.state) && property.location.country ? ", " : ""}${property.location.country || ""}`.trim().replace(/,$/, '') || "N/A" : "N/A";
+  const fullAddress = property.location ? `${property.location.address || ""}${property.location.address ? ", " : ""}${property.location.city || ""}${property.location.city ? ", " : ""}${property.location.state || ""}${property.location.state ? " " : ""}${property.location.postalCode || ""}`.trim().replace(/,$/, "") || "N/A" : "N/A";
+  const averageRating = property.averageRating || 0.0;
+  const numberOfReviews = property.numberOfReviews || 0;
+  const isVerifiedListing = property.propertyStatus === "For Sale";
+  const applicationFee = property.applicationFee || 100;
+  const securityDeposit = property.securityDeposit || 500;
+  const isPetsAllowed = property.isPetsAllowed !== undefined ? property.isPetsAllowed : true;
+  const isParkingIncluded = property.isParkingIncluded !== undefined ? property.isParkingIncluded : true;
 
   return (
-    <div className="dashboard-container">
-      {/* Back to a relevant listing page - adjust href as needed */}
-      <Link
-        href="/buy" // Example: Link to a page showing all properties for sale
-        className="flex items-center mb-6 text-gray-600 hover:text-primary-600 transition-colors"
-        scroll={false}
+    <div className="bg-white min-h-screen">
+      {/* Full-width Image Carousel at the Top */}
+{property && property.photoUrls && property.photoUrls.length > 0 ? (
+  <div className="relative h-[350px] sm:h-[450px] md:h-[550px] w-full mb-8 overflow-hidden group"> {/* Added group for button visibility on hover */}
+    {property.photoUrls.map((imageUrl, index) => (
+      <div
+        key={imageUrl} // Assuming imageUrls are unique, or use index if not
+        className={`absolute inset-0 transition-opacity duration-500 ease-in-out ${
+          index === currentImageIndex ? "opacity-100 z-10" : "opacity-0 z-0"
+        }`}
       >
-        <ArrowLeft className="w-5 h-5 mr-2" />
-        <span>Back to Properties for Sale</span>
-      </Link>
+        <Image
+          src={imageUrl}
+          alt={`${property.name} - Image ${index + 1}`}
+          layout="fill"
+          objectFit="cover"
+          priority={index === 0} // Prioritize loading the first image
+        />
+      </div>
+    ))}
+    {property.photoUrls.length > 1 && (
+      <>
+        <button
+          onClick={handlePrevImage}
+          className="absolute left-3 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-60 text-white p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all opacity-0 group-hover:opacity-100 z-20"
+          aria-label="Previous image"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+        <button
+          onClick={handleNextImage}
+          className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-40 hover:bg-opacity-60 text-white p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all opacity-0 group-hover:opacity-100 z-20"
+          aria-label="Next image"
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+      </>
+    )}
+  </div>
+) : (
+  <div className="h-[300px] w-full bg-gray-100 dark:bg-gray-800 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 mb-8">
+    <ImageIcon className="w-20 h-20 mb-2" />
+    <p>No images available for this property.</p>
+  </div>
+)}
 
-      <Header
-        title={property.name || "Property Details"}
-        subtitle={`Explore the details of this property listed for sale.`}
-      />
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 pb-8"> {/* Added pb-8 */}
+        <Link
+            href="/dashboard/landlords/properties"
+            className="inline-flex items-center mb-6 text-gray-500 hover:text-gray-700 transition-colors text-sm"
+        >
+            <ArrowLeft className="w-4 h-4 mr-1.5" />
+            Back to My Properties
+        </Link>
 
-      <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Images and Key Details */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Image Carousel */}
-          {property.photoUrls && property.photoUrls.length > 0 ? (
-            <Card>
-              <CardContent className="p-0">
-                <Carousel className="w-full rounded-lg overflow-hidden">
-                  <CarouselContent>
-                    {property.photoUrls.map((url, index) => (
-                      <CarouselItem key={index}>
-                        <div className="relative aspect-video w-full">
-                          <Image
-                            src={url}
-                            alt={`${property.name} - Image ${index + 1}`}
-                            layout="fill"
-                            objectFit="cover"
-                            priority={index === 0}
-                            className="rounded-lg"
-                          />
-                        </div>
-                      </CarouselItem>
-                    ))}
-                    {property.photoUrls.length === 0 && (
-                      <CarouselItem>
-                        <div className="relative aspect-video w-full bg-gray-200 flex items-center justify-center rounded-lg">
-                          <ImageIcon className="w-16 h-16 text-gray-400" />
-                        </div>
-                      </CarouselItem>
-                    )}
-                  </CarouselContent>
-                  {property.photoUrls.length > 1 && (
-                    <>
-                      <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2" />
-                      <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2" />
-                    </>
-                  )}
-                </Carousel>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="flex items-center justify-center aspect-video bg-gray-100 rounded-lg">
-              <ImageIcon className="w-24 h-24 text-gray-400" />
-              <p className="ml-4 text-gray-500">No images available</p>
-            </Card>
-          )}
-
-          {/* Property Overview Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-3xl font-bold">
-                {property.name}
-              </CardTitle>
-              <CardDescription className="flex items-center text-lg text-gray-600 mt-1">
-                <MapPin className="w-5 h-5 mr-2 text-primary-500" />
-                {fullAddress}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-x-6 gap-y-3 text-gray-700">
+        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+          {/* Left Column */}
+          <div className="w-full lg:w-2/3 space-y-10">
+            {/* Property Overview Section */}
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">{property.name}</h1>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 mb-4">
                 <span className="flex items-center">
-                  <BedDouble className="w-5 h-5 mr-2 text-blue-500" />{" "}
-                  {property.beds} Beds
+                  <MapPin className="w-4 h-4 mr-1.5 text-gray-500" />
+                  {locationString}
                 </span>
                 <span className="flex items-center">
-                  <Bath className="w-5 h-5 mr-2 text-blue-500" />{" "}
-                  {property.baths} Baths
+                  <Star className="w-4 h-4 mr-1.5 text-yellow-400 fill-yellow-400" />
+                  {averageRating.toFixed(1)} ({numberOfReviews} Reviews)
                 </span>
-                <span className="flex items-center">
-                  <Ruler className="w-5 h-5 mr-2 text-blue-500" />{" "}
-                  {property.squareFeet.toLocaleString()} sq ft
-                </span>
-                {property.yearBuilt && (
-                  <span className="flex items-center">
-                    <CalendarDays className="w-5 h-5 mr-2 text-blue-500" />{" "}
-                    Built: {property.yearBuilt}
-                  </span>
+                {isVerifiedListing && (
+                  <span className="text-green-600 font-medium">Verified Listing</span>
                 )}
               </div>
-              <Separator />
-              <p className="text-gray-700 text-md leading-relaxed">
+
+              <div className="border border-gray-200 rounded-lg p-4 sm:p-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                  <div>
+                    <div className="text-xs text-gray-500 mb-0.5">Sale Price</div>
+                    <div className="font-semibold text-gray-800">
+                      ${property.salePrice.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="relative">
+                     <span className="absolute left-0 top-1/2 transform -translate-y-1/2 h-8 border-l border-gray-200 hidden sm:block"></span>
+                    <div className="text-xs text-gray-500 mb-0.5">Bedrooms</div>
+                    <div className="font-semibold text-gray-800">{property.beds} bd</div>
+                  </div>
+                  <div className="relative">
+                     <span className="absolute left-0 top-1/2 transform -translate-y-1/2 h-8 border-l border-gray-200 hidden sm:block"></span>
+                    <div className="text-xs text-gray-500 mb-0.5">Bathrooms</div>
+                    <div className="font-semibold text-gray-800">{property.baths} ba</div>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-0 top-1/2 transform -translate-y-1/2 h-8 border-l border-gray-200 hidden sm:block"></span>
+                    <div className="text-xs text-gray-500 mb-0.5">Square Feet</div>
+                    <div className="font-semibold text-gray-800">
+                      {property.squareFeet.toLocaleString()} sq ft
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* About Section */}
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-3">About {property.name}</h2>
+              <p className="text-gray-600 leading-relaxed text-sm">
                 {property.description}
               </p>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Amenities and Highlights */}
-          {(property.amenities.length > 0 ||
-            property.highlights.length > 0) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <ListChecks className="w-6 h-6 mr-2 text-green-600" />{" "}
-                  Features & Highlights
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {property.amenities.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-lg mb-2 text-gray-800">
-                      Amenities
-                    </h3>
-                    <ul className="list-disc list-inside space-y-1 text-gray-600">
-                      {property.amenities.map((amenity, index) => (
-                        <li key={`amenity-${index}`}>{amenity}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {property.highlights.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-lg mb-2 text-gray-800">
-                      Highlights
-                    </h3>
-                    <ul className="list-disc list-inside space-y-1 text-gray-600">
-                      {property.highlights.map((highlight, index) => (
-                        <li key={`highlight-${index}`}>{highlight}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Open House Dates */}
-          {property.openHouseDates && property.openHouseDates.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Users className="w-6 h-6 mr-2 text-purple-600" /> Open House
-                  Schedule
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {property.openHouseDates.map((dateStr, index) => (
-                    <li
-                      key={`oh-${index}`}
-                      className="flex items-center text-gray-700"
-                    >
-                      <CalendarDays className="w-5 h-5 mr-2 text-purple-500 flex-shrink-0" />
-                      {new Date(dateStr).toLocaleString([], {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Seller Notes */}
-          {property.sellerNotes && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Newspaper className="w-6 h-6 mr-2 text-yellow-600" />{" "}
-                  Seller's Notes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-700 whitespace-pre-wrap">
-                  {property.sellerNotes}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Right Column: Pricing, Status, Actions */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="sticky top-24">
-            {" "}
-            {/* Sticky for nice scrolling */}
-            <CardHeader>
-              <CardTitle className="flex items-center text-3xl font-bold text-primary-600">
-                <DollarSign className="w-8 h-8 mr-2" />
-                {property.salePrice.toLocaleString("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                })}
-              </CardTitle>
-              <div className="flex items-center mt-2">
-                <Briefcase className="w-5 h-5 mr-2 text-gray-500" />
-                <Badge
-                  variant={
-                    property.propertyStatus === "For Sale"
-                      ? "default"
-                      : property.propertyStatus === "Pending"
-                      ? "secondary"
-                      : property.propertyStatus === "Sold"
-                      ? "destructive"
-                      : "outline"
-                  }
-                  className="text-sm px-3 py-1"
-                >
-                  {property.propertyStatus}
-                </Badge>
+            {/* Highlights Section */}
+            {property.highlights && property.highlights.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800 mb-4">Highlights</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {property.highlights.map((highlight, index) => {
+                    const HighlightIcon = HighlightVisuals[highlight]?.icon || HighlightVisuals.DEFAULT.icon;
+                    return (
+                      <div
+                        key={index}
+                        className="flex flex-col items-center text-center border border-gray-200 rounded-lg py-5 px-3"
+                      >
+                        <HighlightIcon className="w-7 h-7 mb-2 text-gray-600" />
+                        <span className="text-xs text-gray-700">{highlight}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 flex items-center">
-                  <Building2 className="w-5 h-5 mr-2" /> Property Type:
-                </span>
-                <span className="font-semibold text-gray-800">
-                  {property.propertyType}
-                </span>
+            )}
+
+            {/* Fees and Policies Section */}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800 mb-1">Fees and Policies</h2>
+              <p className="text-xs text-gray-500 mb-4">
+                The fees below are based on community-supplied data and may exclude additional fees and utilities.
+              </p>
+              <Tabs defaultValue="required-fees" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 bg-gray-100 rounded-md p-1">
+                  <TabsTrigger value="required-fees" className="text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm">Required Fees</TabsTrigger>
+                  <TabsTrigger value="pets" className="text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm">Pets</TabsTrigger>
+                  <TabsTrigger value="parking" className="text-xs data-[state=active]:bg-white data-[state=active]:shadow-sm">Parking</TabsTrigger>
+                </TabsList>
+                <TabsContent value="required-fees" className="pt-5 text-sm">
+                  <p className="font-medium text-gray-700 mb-3">One time move in fees</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-gray-600">
+                      <span>Application Fee</span>
+                      <span>${applicationFee}</span>
+                    </div>
+                    <Separator/>
+                    <div className="flex justify-between items-center text-gray-600">
+                      <span>Security Deposit</span>
+                      <span>${securityDeposit}</span>
+                    </div>
+                    {property.HOAFees !== null && property.HOAFees !== undefined && (
+                        <>
+                            <Separator/>
+                            <div className="flex justify-between items-center text-gray-600">
+                                <span>HOA Fees (Monthly)</span>
+                                <span>${property.HOAFees.toLocaleString()}</span>
+                            </div>
+                        </>
+                    )}
+                  </div>
+                </TabsContent>
+                <TabsContent value="pets" className="pt-5 text-sm">
+                  <p className="font-medium text-gray-700">
+                    Pets are {isPetsAllowed ? "allowed" : "not allowed"}.
+                  </p>
+                </TabsContent>
+                <TabsContent value="parking" className="pt-5 text-sm">
+                  <p className="font-medium text-gray-700">
+                    Parking is {isParkingIncluded ? "included" : "not included"}.
+                  </p>
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            {/* Map and Location Section */}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800 mb-1">Map and Location</h2>
+              {(!property.location || !property.location.coordinates) && (
+                 <p className="text-xs text-gray-500 mb-3">
+                    Location coordinates are not available for this property. Map cannot be displayed.
+                 </p>
+              )}
+              <div className="flex items-center text-sm text-gray-600">
+                <MapPin className="w-4 h-4 mr-1.5 text-gray-500 flex-shrink-0" />
+                Property Address:
+                <span className="ml-1 font-medium text-gray-800">{fullAddress}</span>
               </div>
-              {property.HOAFees !== null && property.HOAFees !== undefined && (
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 flex items-center">
-                    <Home className="w-5 h-5 mr-2" /> HOA Fees:
-                  </span>
-                  <span className="font-semibold text-gray-800">
-                    ${property.HOAFees.toLocaleString()}/month
-                  </span>
+              {property.location?.coordinates && (
+                <div className="mt-4 h-[250px] rounded-lg bg-gray-200 flex items-center justify-center text-gray-500">
+                  Map would be displayed here
                 </div>
               )}
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 flex items-center">
-                  <CalendarDays className="w-5 h-5 mr-2" /> Posted:
-                </span>
-                <span className="font-semibold text-gray-800">
-                  {new Date(property.postedDate).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 flex items-center">
-                  <Handshake className="w-5 h-5 mr-2" /> Buyer Applications:
-                </span>
-                <span
-                  className={`font-semibold ${
-                    property.allowBuyerApplications
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}
-                >
-                  {property.allowBuyerApplications
-                    ? "Accepted"
-                    : "Not Accepted"}
-                </span>
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-3 pt-4">
-              {property.allowBuyerApplications &&
-                property.propertyStatus === "For Sale" && (
-                  <Button
-                    size="lg"
-                    className="w-full bg-green-600 hover:bg-green-700"
-                  >
-                    <CircleCheck className="w-5 h-5 mr-2" /> Apply to Buy / Make
-                    Offer
-                  </Button>
-                )}
-              <Button
-                size="lg"
-                variant="secondary"
-                className="w-full"
-                as="a"
-                href={property.agreementDocumentUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <FileText className="w-5 h-5 mr-2" /> View Agreement/Disclosures
-              </Button>
-            </CardFooter>
-          </Card>
+            </div>
+          </div>
 
-          {property.preferredFinancingInfo && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-lg">
-                  <Library className="w-5 h-5 mr-2 text-indigo-600" /> Preferred
-                  Financing
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600">
-                  {property.preferredFinancingInfo}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {property.insuranceRecommendation && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-lg">
-                  <ShieldAlert className="w-5 h-5 mr-2 text-orange-600" />{" "}
-                  Insurance Info
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600">
-                  {property.insuranceRecommendation}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+          {/* Right Column (Contact Widget) */}
+          <div className="w-full lg:w-1/3 lg:sticky top-8 h-fit">
+            <ContactWidget onOpenModal={() => setIsModalOpen(true)} />
+          </div>
         </div>
       </div>
+
+      {authUser && propertyIdForModal && (
+        <ApplicationModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          propertyId={propertyIdForModal}
+        />
+      )}
     </div>
   );
 };

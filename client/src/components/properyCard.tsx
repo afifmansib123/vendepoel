@@ -111,9 +111,9 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
             <span
               className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold text-white rounded-full ${
                 propertyStatus === "For Sale"
-                  ? "bg-green-500"
-                  : propertyStatus === "For Rent"
                   ? "bg-blue-500"
+                  : propertyStatus === "For Rent"
+                  ? "bg-black"
                   : "bg-gray-500"
               }`}
             >
@@ -126,7 +126,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
           <h3 className="text-lg font-semibold text-gray-800 truncate mb-1">
             {name}
           </h3>
-          <p className="text-2xl font-bold text-indigo-600 mb-2">
+          <p className="text-2xl font-bold text-gray-800 mb-2">
             {formattedPrice}
           </p>
 
@@ -139,15 +139,15 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
 
           <div className="grid grid-cols-3 gap-2 text-sm text-gray-700 mb-3">
             <div className="flex items-center">
-              <BedDouble size={16} className="mr-1 text-indigo-500" /> {beds}{" "}
+              <BedDouble size={16} className="mr-1 text-black" /> {beds}{" "}
               <span className="ml-1 hidden sm:inline">Beds</span>
             </div>
             <div className="flex items-center">
-              <Bath size={16} className="mr-1 text-indigo-500" /> {baths}{" "}
+              <Bath size={16} className="mr-1 text-black" /> {baths}{" "}
               <span className="ml-1 hidden sm:inline">Baths</span>
             </div>
             <div className="flex items-center">
-              <Maximize size={16} className="mr-1 text-indigo-500" />{" "}
+              <Maximize size={16} className="mr-1 text-black" />{" "}
               {squareFeet}
               <span className="ml-1 hidden sm:inline">sqft</span>
             </div>
@@ -166,7 +166,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
               <CalendarDays size={14} className="mr-1" />
               <span>Posted: {formattedDate}</span>
             </div>
-            <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full font-medium group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+            <span className="px-3 py-1 bg-indigo-100 text-black rounded-full font-medium group-hover:bg-gray-600 group-hover:text-white transition-colors">
               Manage
             </span>
           </div>
