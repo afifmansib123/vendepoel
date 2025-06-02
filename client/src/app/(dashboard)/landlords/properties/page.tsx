@@ -62,14 +62,7 @@ const LandlordProperties = () => {
           <p className="text-gray-500 mb-6">
             You haven’t listed any properties. Get started by adding your first one!
           </p>
-          {/* You can reuse the button style from above or simplify */}
-          <button
-            onClick={() => { /* Logic to navigate to add property page */ alert("Navigate to Add Property Page"); }}
-            className="inline-flex items-center px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-          >
-            <PlusCircle size={20} className="mr-2" />
-            List Your First Property
-          </button>
+          
         </div>
       )}
     </div>

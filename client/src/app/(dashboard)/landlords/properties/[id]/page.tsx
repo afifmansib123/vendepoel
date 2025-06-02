@@ -13,12 +13,32 @@ import {
   Star,
   Phone,
   HelpCircle,
-  ImageIcon, // For placeholder image
+  ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  // Add these new icons for highlights and amenities
+  Wifi,
+  Car,
+  Waves,
+  Trees,
+  Dumbbell,
+  Shield,
+  Flame,
+  Snowflake,
+  ChefHat,
+  Tv,
+  Dog,
+  Camera,
+  Lock,
+  Sun,
+  Wind,
+  Home,
+  Users,
+  Coffee,
+  Gamepad2,
+  Baby,
 } from "lucide-react";
-import {
-  ChevronLeft, // For custom image preview
-  ChevronRight, // For custom image preview
-} from "lucide-react";
+
 
 
 import Loading from "@/components/Loading";
@@ -85,7 +105,87 @@ interface SellerPropertyDetail {
 }
 
 const HighlightVisuals: Record<string, { icon: React.ElementType }> = {
-  "Smoke Free": { icon: HelpCircle }, // Replace with actual icon
+  // Property Features
+  "Air Conditioning": { icon: Snowflake },
+  "Heating": { icon: Flame },
+  "Hardwood Floors": { icon: Home },
+  "Carpet": { icon: Home },
+  "Tile Floors": { icon: Home },
+  "High Ceilings": { icon: ArrowLeft }, // Use ArrowLeft rotated or replace with better icon
+  "Walk-in Closet": { icon: Home },
+  "Balcony": { icon: Sun },
+  "Patio": { icon: Sun },
+  "Fireplace": { icon: Flame },
+  "Bay Windows": { icon: Sun },
+  "Skylight": { icon: Sun },
+  "Ceiling Fans": { icon: Wind },
+  
+  // Kitchen & Appliances
+  "Updated Kitchen": { icon: ChefHat },
+  "Stainless Steel Appliances": { icon: ChefHat },
+  "Granite Countertops": { icon: ChefHat },
+  "Dishwasher": { icon: ChefHat },
+  "Microwave": { icon: ChefHat },
+  "Refrigerator": { icon: ChefHat },
+  "Washer/Dryer": { icon:  Wind},
+  "Laundry Room": { icon: Wind},
+  "In-Unit Laundry": { icon: Wind },
+  
+  // Technology & Connectivity
+  "High-Speed Internet": { icon: Wifi },
+  "WiFi Included": { icon: Wifi },
+  "Cable Ready": { icon: Tv },
+  "Smart Home Features": { icon: Home },
+  "Security System": { icon: Shield },
+  "Video Surveillance": { icon: Camera },
+  "Keyless Entry": { icon: Lock },
+  
+  // Parking & Transportation
+  "Garage": { icon: Car },
+  "Covered Parking": { icon: Car },
+  "Street Parking": { icon: Car },
+  "Parking Included": { icon: Car },
+  "EV Charging": { icon: Car },
+  
+  // Outdoor & Recreation
+  "Swimming Pool": { icon: Waves },
+  "Hot Tub": { icon: Waves },
+  "Garden": { icon: Trees },
+  "Landscaped Yard": { icon: Trees },
+  "Deck": { icon: Sun },
+  "Rooftop Access": { icon: Sun },
+  "Outdoor Space": { icon: Trees },
+  
+  // Building Amenities
+  "Fitness Center": { icon: Dumbbell },
+  "Gym": { icon: Dumbbell },
+  "Business Center": { icon: Coffee },
+  "Conference Room": { icon: Users },
+  "Lounge Area": { icon: Coffee },
+  "Game Room": { icon: Gamepad2 },
+  "Library": { icon: Coffee },
+  "Concierge": { icon: Users },
+  "24/7 Security": { icon: Shield },
+  "Controlled Access": { icon: Lock },
+  "Elevator": { icon: ArrowLeft }, // Use ArrowLeft rotated or replace
+  
+  // Pet & Family Friendly
+  "Pet Friendly": { icon: Dog },
+  "Dog Park": { icon: Dog },
+  "Pet Wash Station": { icon: Dog },
+  "Playground": { icon: Baby },
+  "Family Friendly": { icon: Users },
+  "Child Care": { icon: Baby },
+  
+  // Accessibility & Safety
+  "Wheelchair Accessible": { icon: Users  },
+  "Handicap Accessible": { icon: Users  },
+  "Emergency Exits": { icon: Shield },
+  "Fire Safety": { icon: Shield },
+  "Smoke Free": { icon: Wind },
+  "Non Smoking": { icon: Wind },
+  
+  // Default fallback
   DEFAULT: { icon: Star },
 };
 
@@ -274,6 +374,26 @@ const handleNextImage = () => {
                 {property.description}
               </p>
             </div>
+
+                        {property.amenities && property.amenities.length > 0 && (
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800 mb-4">Amenities</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {property.amenities.map((highlight, index) => {
+                    const HighlightIcon = HighlightVisuals[highlight]?.icon || HighlightVisuals.DEFAULT.icon;
+                    return (
+                      <div
+                        key={index}
+                        className="flex flex-col items-center text-center border border-gray-200 rounded-lg py-5 px-3"
+                      >
+                        <HighlightIcon className="w-7 h-7 mb-2 text-gray-600" />
+                        <span className="text-xs text-gray-700">{highlight}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Highlights Section */}
             {property.highlights && property.highlights.length > 0 && (

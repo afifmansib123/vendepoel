@@ -562,6 +562,7 @@ const NewSellerPropertyPage = () => {
                 <input
                   type="text"
                   id="propertyStatus"
+                  readOnly
                   {...register("propertyStatus")}
                   className={inputClassName}
                 />
