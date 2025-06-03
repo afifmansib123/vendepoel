@@ -51,7 +51,7 @@ const HeroSection = () => {
     <div className="relative h-screen">
       <Image
         src="/landing-splash.jpg"
-        alt="Rentiful Rental Platform Hero Section"
+        alt="Vandepoel Rental Platform Hero Section"
         fill
         className="object-cover object-center"
         priority
