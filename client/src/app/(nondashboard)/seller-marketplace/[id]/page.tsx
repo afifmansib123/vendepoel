@@ -41,6 +41,7 @@ import {
   User,
   Mail,
   CalendarDays,
+  UserCheck,
 } from "lucide-react";
 
 import Loading from "@/components/Loading"; // Assuming this path is correct
@@ -49,6 +50,16 @@ import { Separator } from "@/components/ui/separator"; // Assuming this path is 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Assuming this path is correct
 // Carousel import is not used for top image gallery in the provided code, using custom logic.
 // If you have a Carousel component for the top images, ensure it's correctly used or remove the import if not.
+
+// ... existing lucide-react imports
+import {
+
+  // ADD THESE NEW ICONS:
+  Wrench,
+  Banknote,
+  ClipboardList
+} from "lucide-react";
+import { useGetAuthUserQuery } from "@/state/api";
 
 // Define the expected shape of seller information
 interface SellerInfo {
@@ -404,9 +415,388 @@ const XIcon = (props: React.SVGProps<SVGSVGElement>) => (
     ></path>
   </svg>
 );
+
+// --- RequestMaintenanceModal Component ---
+interface RequestMaintenanceModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  propertyName: string;
+  propertyId: string | number;
+}
+
+const RequestMaintenanceModal: React.FC<RequestMaintenanceModalProps> = ({
+  isOpen,
+  onClose,
+  propertyName,
+  // propertyId, // Potentially use for submission
+}) => {
+  if (!isOpen) return null;
+
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    requestType: "inspection", // Default value
+    description: "",
+  });
+
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("Maintenance Request Submitted:", {
+      propertyName,
+      // propertyId,
+      ...formData,
+    });
+    alert(
+      `Maintenance/inspection request for "${propertyName}" submitted!`
+    );
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 transition-opacity duration-300 ease-in-out">
+      <div className="bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-lg transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalFadeIn">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-semibold text-gray-800">
+            Request Maintenance / Inspection
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <XIcon className="w-6 h-6" />
+          </button>
+        </div>
+        <p className="text-sm text-gray-600 mb-1">
+          Need to check something for <span className="font-medium">{propertyName}</span>?
+        </p>
+        <p className="text-sm text-gray-600 mb-6">
+          Describe your request, and we'll coordinate with the relevant services.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="maintenance-name"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Full Name
+            </label>
+            <input
+              type="text"
+              name="name"
+              id="maintenance-name"
+              required
+              onChange={handleChange}
+              value={formData.name}
+              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="maintenance-email"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Email Address
+              </label>
+              <input
+                type="email"
+                name="email"
+                id="maintenance-email"
+                required
+                onChange={handleChange}
+                value={formData.email}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="maintenance-phone"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                id="maintenance-phone"
+                onChange={handleChange}
+                value={formData.phone}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+              />
+            </div>
+          </div>
+          <div>
+            <label
+              htmlFor="requestType"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Type of Request
+            </label>
+            <select
+              name="requestType"
+              id="requestType"
+              required
+              onChange={handleChange}
+              value={formData.requestType}
+              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+            >
+              <option value="inspection">Property Inspection</option>
+              <option value="repair_query">Repair Query (e.g., AC, Plumbing)</option>
+              <option value="general_maintenance">General Maintenance Question</option>
+              <option value="cosmetic_changes">Cosmetic Changes Inquiry</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor="maintenance-description"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Description of Request
+            </label>
+            <textarea
+              name="description"
+              id="maintenance-description"
+              rows={3}
+              required
+              onChange={handleChange}
+              value={formData.description}
+              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+              placeholder="E.g., 'Interested in inspecting the roof condition' or 'Enquiring about possibility of fixing the leaky faucet in kitchen.'"
+            ></textarea>
+          </div>
+          <div className="pt-2 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+            >
+              Submit Request
+            </Button>
+          </div>
+        </form>
+      </div>
+      {/* Keep the style tag if it's not already global or in ScheduleVisitModal */}
+      <style jsx global>{`
+        @keyframes modalFadeInMaintenance { /* Use a unique animation name if needed */
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-modalFadeIn { /* Or use a more generic class if animation is the same */
+          animation: modalFadeInMaintenance 0.3s ease-out forwards;
+        }
+      `}</style>
+    </div>
+  );
+};
+// --- End RequestMaintenanceModal Component ---
+
+// --- RequestFinancialServicesModal Component ---
+interface RequestFinancialServicesModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  propertyName: string;
+  propertyId: string | number;
+}
+
+const RequestFinancialServicesModal: React.FC<RequestFinancialServicesModalProps> = ({
+  isOpen,
+  onClose,
+  propertyName,
+  // propertyId, // Potentially use for submission
+}) => {
+  if (!isOpen) return null;
+
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    inquiryType: "mortgage_preapproval", // Default value
+    message: "",
+  });
+
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("Financial Services Inquiry Submitted:", {
+      propertyName,
+      // propertyId,
+      ...formData,
+    });
+    alert(
+      `Financial services inquiry for "${propertyName}" submitted! Our partners will contact you.`
+    );
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 transition-opacity duration-300 ease-in-out">
+      <div className="bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-lg transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modalFadeIn">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-semibold text-gray-800">
+            Inquire About Financial Services
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <XIcon className="w-6 h-6" />
+          </button>
+        </div>
+        <p className="text-sm text-gray-600 mb-1">
+          Considering <span className="font-medium">{propertyName}</span>?
+        </p>
+        <p className="text-sm text-gray-600 mb-6">
+          Let us connect you with our financial partners for mortgages, loans, or advice.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="financial-name"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Full Name
+            </label>
+            <input
+              type="text"
+              name="name"
+              id="financial-name"
+              required
+              onChange={handleChange}
+              value={formData.name}
+              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="financial-email"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Email Address
+              </label>
+              <input
+                type="email"
+                name="email"
+                id="financial-email"
+                required
+                onChange={handleChange}
+                value={formData.email}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="financial-phone"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                id="financial-phone"
+                onChange={handleChange}
+                value={formData.phone}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+              />
+            </div>
+          </div>
+          <div>
+            <label
+              htmlFor="inquiryType"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Type of Inquiry
+            </label>
+            <select
+              name="inquiryType"
+              id="inquiryType"
+              required
+              onChange={handleChange}
+              value={formData.inquiryType}
+              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+            >
+              <option value="mortgage_preapproval">Mortgage Pre-approval</option>
+              <option value="loan_options">Loan Options & Rates</option>
+              <option value="financial_advice">General Financial Advice</option>
+              <option value="investment_potential">Investment Potential Inquiry</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor="financial-message"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Message (Optional)
+            </label>
+            <textarea
+              name="message"
+              id="financial-message"
+              rows={3}
+              onChange={handleChange}
+              value={formData.message}
+              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5"
+              placeholder="Any specific questions or details you'd like to share?"
+            ></textarea>
+          </div>
+          <div className="pt-2 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+            >
+              Submit Inquiry
+            </Button>
+          </div>
+        </form>
+      </div>
+      {/* Keep the style tag if it's not already global or in ScheduleVisitModal */}
+      <style jsx global>{`
+        @keyframes modalFadeInFinancial { /* Use a unique animation name if needed */
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-modalFadeIn { /* Or use a more generic class if animation is the same */
+          animation: modalFadeInFinancial 0.3s ease-out forwards;
+        }
+      `}</style>
+    </div>
+  );
+};
 // --- End ScheduleVisitModal Component ---
 
 const MarketplacePropertyDetailsPage = () => {
+    const {data : user} = useGetAuthUserQuery()
   const params = useParams();
   const router = useRouter();
   const propertyIdParams = params.id as string;
@@ -418,6 +808,10 @@ const MarketplacePropertyDetailsPage = () => {
 
   const [isScheduleVisitModalOpen, setIsScheduleVisitModalOpen] =
     useState(false);
+
+  // ADD THESE STATES:
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [isFinancialServicesModalOpen, setIsFinancialServicesModalOpen] = useState(false);
 
   useEffect(() => {
     if (!propertyIdParams) {
@@ -566,6 +960,7 @@ Thank you.
 
     window.location.href = mailtoLink;
   };
+
 
   return (
     <div className="bg-white min-h-screen">
@@ -859,8 +1254,8 @@ Thank you.
           </div>
 
           {/* Right Column (Seller Info & Schedule Visit) */}
-          <div className="w-full lg:w-1/3 lg:sticky top-8 h-fit space-y-6">
-            {/* Seller Information Card */}
+ <div className="w-full lg:w-1/3 lg:sticky top-8 h-fit space-y-6">
+            {/* Seller Information Card - (Your existing card) */}
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 shadow-sm">
               <h3 className="text-xl font-semibold text-gray-800 mb-4">
                 Seller Information
@@ -875,23 +1270,52 @@ Thank you.
             <Button
               onClick={handleRequestSellerDetails}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-base font-semibold rounded-md shadow-md hover:shadow-lg transition-all"
-              size="lg" // Using a pre-defined size from ShadCN if available, or adjust padding.
+              size="lg"
             >
               <HelpCircle className="w-5 h-5 mr-2" />
               Request Seller Details
             </Button>
 
-            {/* Schedule Visit Button */}
+            {/* Schedule Visit Button - (Your existing button) */}
             <Button
               onClick={() => setIsScheduleVisitModalOpen(true)}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-base font-semibold rounded-md shadow-md hover:shadow-lg transition-all"
-              size="lg" // Using a pre-defined size from ShadCN if available, or adjust padding.
+              size="lg"
             >
               <CalendarDays className="w-5 h-5 mr-2" />
               Schedule a Visit
             </Button>
             <p className="text-xs text-gray-500 text-center mt-2">
               Request a tour and the seller will contact you.
+            </p>
+
+            {/* ADD THESE NEW BUTTONS: */}
+            <Separator className="my-4" /> {/* Optional: for visual separation */}
+
+            <Button
+              onClick={() => setIsMaintenanceModalOpen(true)}
+              variant="outline" // Or choose another variant/style
+              className="w-full border-blue-600 text-blue-600 hover:bg-blue-50 py-3 text-base font-semibold rounded-md shadow-sm hover:shadow-md transition-all"
+              size="lg"
+            >
+              <UserCheck className="w-5 h-5 mr-2" />
+              Request to be an Agent
+            </Button>
+            <p className="text-xs text-gray-500 text-center mt-2">
+              Need to check something or inquire about repairs?
+            </p>
+
+            <Button
+              onClick={() => setIsFinancialServicesModalOpen(true)}
+              variant="outline" // Or choose another variant/style
+              className="w-full border-green-600 text-green-600 hover:bg-green-50 py-3 text-base font-semibold rounded-md shadow-sm hover:shadow-md transition-all"
+              size="lg"
+            >
+              <Banknote className="w-5 h-5 mr-2" />
+              Inquire about Financial Services
+            </Button>
+            <p className="text-xs text-gray-500 text-center mt-2">
+              Explore mortgage options or get financial advice.
             </p>
           </div>
         </div>
@@ -906,6 +1330,25 @@ Thank you.
           sellerEmail={property.seller?.email}
         />
       )}
+
+      {user?.userRole === "manager" && (
+        <RequestMaintenanceModal
+          isOpen={isMaintenanceModalOpen}
+          onClose={() => setIsMaintenanceModalOpen(false)}
+          propertyName={property.name}
+          propertyId={property._id} // or property.id
+        />
+      )}
+
+      {isFinancialServicesModalOpen && property && (
+        <RequestFinancialServicesModal
+          isOpen={isFinancialServicesModalOpen}
+          onClose={() => setIsFinancialServicesModalOpen(false)}
+          propertyName={property.name}
+          propertyId={property._id} // or property.id
+        />
+      )}
+
     </div>
   );
 };
