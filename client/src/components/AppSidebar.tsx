@@ -22,7 +22,8 @@ import {
   Search,        // For Property Search (Buyer)
   Briefcase,     // For My Listings/Portfolio (Landlord) - example
   UserCircle,    // For Profile/Account (generic or specific if needed)
-  ShieldCheck,   // Example for Admin/MasterAdmin if you add that later
+  ShieldCheck,
+  User,   // Example for Admin/MasterAdmin if you add that later
 } from "lucide-react";
 import { NAVBAR_HEIGHT } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ const AppSidebar = ({ userType }: AppSidebarProps) => {
     case "manager":
       sidebarTitle = "Manager View";
       navLinks = [
+        { icon: User, label: "Profile", href: "/managers/profile" },
         { icon: Building, label: "Properties", href: "/managers/properties" },
         {
           icon: FileText,
@@ -57,6 +59,7 @@ const AppSidebar = ({ userType }: AppSidebarProps) => {
     case "tenant":
       sidebarTitle = "Renter View";
       navLinks = [
+        { icon: User, label: "Profile", href: "/tenants/profile" },
         { icon: Heart, label: "Favorites", href: "/tenants/favorites" },
         {
           icon: FileText,
@@ -70,6 +73,7 @@ const AppSidebar = ({ userType }: AppSidebarProps) => {
     case "landlord":
       sidebarTitle = "Landlord View";
       navLinks = [
+        { icon: User, label: "Profile", href: "/landlords/profile" },
         { icon: Briefcase, label: "My Properties", href: "/landlords/properties" },
         // Example: Link to add a new property
         // { icon: PlusCircle, label: "Add Property", href: "/landlords/properties/new" }, 
@@ -86,6 +90,7 @@ const AppSidebar = ({ userType }: AppSidebarProps) => {
     case "buyer":
       sidebarTitle = "Buyer View";
       navLinks = [
+        { icon: User, label: "Profile", href: "/buerys/profile" },
         { icon: Search, label: "Search Properties", href: "/buyers/search" }, // Or just "/properties" if search is public but this is buyer dashboard
         { icon: Heart, label: "My Favorites", href: "/buyers/favorites" },
         // Example: Saved searches or alerts

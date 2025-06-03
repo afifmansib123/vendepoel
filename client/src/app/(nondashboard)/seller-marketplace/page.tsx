@@ -5,8 +5,8 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import SellerFiltersBar from "./SellerFiltersBar";
 import SellerListings from "./SellerListings";
-// Import SellerMap if you re-implement it
-// import SellerMap from "./SellerMap";
+import SellerMap from "./SellerMap"; // Assuming you have a SellerMap component
+
 import {
   SellerProperty,
   SellerMarketplaceFilters,
@@ -156,7 +156,7 @@ const SellerMarketplacePage = () => {
            <SellerMap properties={propertiesForMap} isLoading={isLoading} />
            */}
            <div className="bg-gray-200 h-full flex items-center justify-center text-gray-500 rounded-md">
-            Map Area (Placeholder)
+            <SellerMap properties={allProperties} isLoading={isLoading} />
           </div>
         </div>
       </div>
