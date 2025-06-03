@@ -5,9 +5,9 @@
 import PropertyCard, { Property } from "@/components/properyCard"; // Import the new card and Property type
 import Header from "@/components/Header";
 import Loading from "@/components/Loading";
-import { useGetLandlordPropertiesQuery } from "@/state/api";
+import { useGetAuthUserQuery, useGetLandlordPropertiesQuery } from "@/state/api";
 import React from "react";
-import { PlusCircle } from "lucide-react"; // For a potential "Add Property" button
+import { useState , useEffect } from "react";
 
 const LandlordProperties = () => {
   const {
@@ -15,6 +15,23 @@ const LandlordProperties = () => {
     isLoading,
     isError,
   } = useGetLandlordPropertiesQuery() as { data: Property[] | undefined, isLoading: boolean, isError: boolean };
+
+  const { data: authUser } = useGetAuthUserQuery()
+
+  const [landlord, setlandlord] = useState<string>('')
+  const [userproperties , setuserproperties] = useState<Property[]>([])
+
+  useEffect(() => {
+    if (authUser && authUser?.userRole === 'landlord') {
+      const seelrsproperties = landlordProperties?.filter(
+        (property) => property.sellerCognitoId === authUser?.cognitoInfo.userId
+      );
+      setuserproperties(seelrsproperties || []);
+    } else {
+      alert('You are not authorized to view this page. Please log in as a landlord.');
+    }
+  },[authUser, landlordProperties]);
+  
 
   if (isLoading) return <Loading />;
   if (isError)
@@ -38,9 +55,9 @@ const LandlordProperties = () => {
         title="My Properties"
         subtitle="View and manage your property listings as a landlord"
       />
-      {landlordProperties && landlordProperties.length > 0 ? (
+      {userproperties && userproperties.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6"> {/* Adjusted xl breakpoint */}
-          {landlordProperties.map((property) => (
+          {userproperties.map((property) => (
             <PropertyCard
               key={property.id || property._id} // Use unique key
               property={property}

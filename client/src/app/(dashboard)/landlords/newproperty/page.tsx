@@ -12,6 +12,8 @@ import "filepond-plugin-image-preview/dist/filepond-plugin-image-preview.min.css
 import FilePondPluginFileValidateType from "filepond-plugin-file-validate-type";
 import FilePondPluginFileValidateSize from "filepond-plugin-file-validate-size"; // For file size validation
 
+import { useGetAuthUserQuery } from "@/state/api";
+
 // --- Register FilePond plugins ---
 registerPlugin(
   FilePondPluginImagePreview,
@@ -166,23 +168,6 @@ interface SellerPropertyFormData {
   termsAgreed?: boolean;
 }
 
-interface AuthUser {
-  cognitoInfo: { userId: string };
-}
-
-// Mock API functions (untouched)
-const getAuthUserAPI = async (): Promise<AuthUser | null> => {
-  console.log(
-    "API CALL (GET): /api/auth/user - Fetching authenticated user..."
-  );
-  return new Promise((resolve) =>
-    setTimeout(
-      () => resolve({ cognitoInfo: { userId: "mock-seller-cognito-123" } }),
-      500
-    )
-  );
-};
-
 const createSellerPropertyAPI = async (
   formData: FormData
 ): Promise<{ success: boolean; property?: any; message?: string }> => {
@@ -215,8 +200,9 @@ const createSellerPropertyAPI = async (
 };
 
 const NewSellerPropertyPage = () => {
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  const [authError, setAuthError] = useState<string | null>(null);
+  // Use the hook directly in the component
+  const { data: authUser, error: authQueryError, isLoading: authLoading } = useGetAuthUserQuery();
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{
     type: "success" | "error";
@@ -267,24 +253,6 @@ const NewSellerPropertyPage = () => {
     watch,
     formState: { errors },
   } = form;
-
-  // --- REMOVED OLD PHOTO UPLOAD LOGIC ---
-  // const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  // const currentPhotoFiles: File[] = watch("photos") || [];
-  // useEffect for previewUrls removed
-  // handleFileChange removed
-  // handleRemoveImage removed
-  // --- END OF REMOVED PHOTO UPLOAD LOGIC ---
-
-  useEffect(() => {
-    // Auth user fetching (untouched)
-    getAuthUserAPI()
-      .then((user) => {
-        if (user) setAuthUser(user);
-        else setAuthError("Failed to load user info.");
-      })
-      .catch(() => setAuthError("Error fetching user."));
-  }, []);
 
   const watchedCountry = watch("country");
   const watchedState = watch("state");
@@ -377,9 +345,10 @@ const NewSellerPropertyPage = () => {
   const onSubmit: SubmitHandler<SellerPropertyFormData> = async (
     submittedData
   ) => {
-    // (Untouched in core logic)
     setIsSubmitting(true);
     setSubmitMessage(null);
+    
+    // Check if we have the authenticated user data
     if (!authUser?.cognitoInfo?.userId) {
       setSubmitMessage({
         type: "error",
@@ -444,7 +413,10 @@ const NewSellerPropertyPage = () => {
       );
     }
 
+    // Add the cognito ID to the form data
     formDataToSubmit.append("sellerCognitoId", authUser.cognitoInfo.userId);
+
+    console.log("Submitting with Cognito ID:", authUser.cognitoInfo.userId);
 
     const response = await createSellerPropertyAPI(formDataToSubmit);
     if (response.success) {
@@ -453,7 +425,6 @@ const NewSellerPropertyPage = () => {
         text: response.message || "Property listed successfully!",
       });
       reset(); // Resets form, including photos to its default value ([])
-      // setPreviewUrls([]); // No longer needed
     } else {
       setSubmitMessage({
         type: "error",
@@ -471,18 +442,24 @@ const NewSellerPropertyPage = () => {
   const sectionTitleClassName = "text-xl font-semibold text-gray-900 mb-1";
   const sectionDescriptionClassName = "text-sm text-gray-600 mb-6";
 
-  if (authError)
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <p className="text-red-500">{authError}</p>
-      </div>
-    );
-  if (!authUser)
+  // Handle loading and error states
+  if (authLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <p>Loading user information...</p>
       </div>
     );
+  }
+
+  if (authQueryError || !authUser) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p className="text-red-500">
+          {authQueryError ? "Error loading user information. Please try refreshing the page." : "Failed to load user info."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
@@ -509,9 +486,8 @@ const NewSellerPropertyPage = () => {
 
       <Form {...form}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-          {/* Basic Info (Untouched) */}
+          {/* Basic Info */}
           <div className={sectionCardClassName}>
-            {/* ... content ... */}
             <h2 className={sectionTitleClassName}>Property Overview</h2>
             <div className="space-y-4">
               <div>
@@ -539,9 +515,8 @@ const NewSellerPropertyPage = () => {
             </div>
           </div>
 
-          {/* Sale Details (Untouched) */}
+          {/* Sale Details */}
           <div className={sectionCardClassName}>
-            {/* ... content ... */}
             <h2 className={sectionTitleClassName}>Sale Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -570,9 +545,8 @@ const NewSellerPropertyPage = () => {
             </div>
           </div>
 
-          {/* Property Specifics (Untouched) */}
+          {/* Property Specifics */}
           <div className={sectionCardClassName}>
-            {/* ... content ... */}
             <h2 className={sectionTitleClassName}>Property Specifics</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div>
@@ -655,7 +629,7 @@ const NewSellerPropertyPage = () => {
             </div>
           </div>
 
-          {/* Location Section - REVISED */}
+          {/* Location Section */}
           <div className={sectionCardClassName}>
             <h2 className={sectionTitleClassName}>Location</h2>
             <p className={sectionDescriptionClassName}>
@@ -772,7 +746,7 @@ const NewSellerPropertyPage = () => {
             </div>
           </div>
 
-          {/* --- MEDIA & DOCUMENTS SECTION with FilePond --- */}
+          {/* Media & Documents Section with FilePond */}
           <div className={sectionCardClassName}>
             <h2 className={sectionTitleClassName}>Media & Documents</h2>
             <div className="space-y-6">
@@ -820,8 +794,6 @@ const NewSellerPropertyPage = () => {
                           labelMaxFileSizeExceeded="File is too large"
                           labelMaxFileSize="Maximum file size is {filesize}"
                           credits={false} // Removes "Powered by PQINA"
-                          // You can add a className here if you need to style the FilePond root
-                          // e.g., className="my-custom-filepond"
                         />
                       </FormControl>
                       <FormMessage>
@@ -830,10 +802,9 @@ const NewSellerPropertyPage = () => {
                     </FormItem>
                   )}
                 />
-                {/* The old custom preview grid is no longer needed here */}
               </div>
 
-              {/* Agreement Document - Kept original simple upload (Untouched) */}
+              {/* Agreement Document */}
               <div>
                 <label htmlFor="agreementDocument" className={labelClassName}>
                   Sales Agreement Template / Info (Optional)
@@ -848,11 +819,9 @@ const NewSellerPropertyPage = () => {
               </div>
             </div>
           </div>
-          {/* --- END OF MEDIA & DOCUMENTS SECTION --- */}
 
-          {/* Additional Information for Buyers (Untouched) */}
+          {/* Additional Information for Buyers */}
           <div className={sectionCardClassName}>
-            {/* ... content ... */}
             <h2 className={sectionTitleClassName}>
               Additional Information for Buyers
             </h2>
