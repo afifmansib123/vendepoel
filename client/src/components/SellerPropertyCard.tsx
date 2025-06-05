@@ -40,7 +40,7 @@ const SellerPropertyCard: React.FC<SellerPropertyCardProps> = ({
         </div>
         <div className="p-5">
           <p className="text-2xl font-bold text-primary-700 mb-3">
-            ${property.salePrice.toLocaleString()}
+            THB{property.salePrice.toLocaleString()}
           </p>
           <p className="text-sm text-gray-600 mb-3 flex items-center">
 

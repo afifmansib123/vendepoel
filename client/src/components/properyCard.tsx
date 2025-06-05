@@ -85,7 +85,7 @@ const PropertyCard: React.FC<PropertyCardProps> = ({
 
   const formattedPrice = new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD", // Change as needed
+    currency: "THB", // Change as needed
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(salePrice);

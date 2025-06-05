@@ -2,13 +2,24 @@
 import { NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import dbConnect from '@/lib/dbConnect'; // Assuming @ alias
+import dbConnect from '@/lib/dbConnect';
 
-import Tenant from '@/lib/models/Tenant'; // Only importing Tenant model
+// Import your models (adjust paths as needed)
+import Application from '@/lib/models/Application';
+import Lease from '@/lib/models/Lease';
+import Location from '@/lib/models/Location';
+import Manager from '@/lib/models/Manager';
+import Payment from '@/lib/models/Payment';
+import Property from '@/lib/models/Property';
 
-// Configuration for seeding - ONLY TENANT
+// Model configuration for seeding (EXCLUDING Tenant - already seeded)  
 const modelSeedConfig = [
-  { modelName: 'Tenant', MongooseModel: Tenant, fileName: 'tenant.json' },
+  { modelName: 'Location', MongooseModel: Location, fileName: 'locations.json' },
+  { modelName: 'Manager', MongooseModel: Manager, fileName: 'managers.json' },
+  { modelName: 'Property', MongooseModel: Property, fileName: 'properties.json' },
+  { modelName: 'Lease', MongooseModel: Lease, fileName: 'leases.json' },
+  { modelName: 'Application', MongooseModel: Application, fileName: 'applications.json' },
+  { modelName: 'Payment', MongooseModel: Payment, fileName: 'payments.json' },
 ];
 
 // Helper function to load and parse JSON data
@@ -22,13 +33,13 @@ async function readAndParseJSON(filePath, logs) {
         return parsedData;
     } catch (parseOrReadError) {
         logs.push(`   ❌ Error reading or parsing ${filePath}: ${parseOrReadError.message}`);
-        throw parseOrReadError; // Re-throw to be caught by the main logic
+        throw parseOrReadError;
     }
 }
 
 export async function GET(request) {
   const logs = [];
-  logs.push(`Seeding process started for TENANT ONLY (ONE-BY-ONE with pre-processing). NODE_ENV: ${process.env.NODE_ENV}`);
+  logs.push(`Seeding process started for ALL MODELS EXCEPT TENANT (already seeded). NODE_ENV: ${process.env.NODE_ENV}`);
   logs.push(`Current Working Directory (process.cwd()): ${process.cwd()}`);
 
   // Security check
@@ -41,6 +52,8 @@ export async function GET(request) {
   }
 
   let overallSuccess = true;
+  let totalSuccessfulInserts = 0;
+  let totalAttemptedInserts = 0;
   const projectRoot = process.cwd();
   const seedDataDirRoot = path.join(projectRoot, 'src', 'seedData');
 
@@ -48,23 +61,24 @@ export async function GET(request) {
     await dbConnect();
     logs.push('✅ MongoDB connected for seeding...');
 
-    // Clear ONLY the Tenant collection
-    logs.push('🗑️ Clearing existing Tenant data...');
-    try {
-      await Tenant.deleteMany({});
-      logs.push(`   Cleared Tenant collection.`);
-    } catch (e) {
-      logs.push(`   ❌ Error clearing Tenant: ${e.message}`);
-      // overallSuccess = false; // Decide if this should halt everything
+    // Clear existing data for all collections EXCEPT Tenant
+    logs.push('🗑️ Clearing existing data for all collections (except Tenant)...');
+    for (const config of modelSeedConfig) {
+      try {
+        await config.MongooseModel.deleteMany({});
+        logs.push(`   Cleared ${config.modelName} collection.`);
+      } catch (e) {
+        logs.push(`   ❌ Error clearing ${config.modelName}: ${e.message}`);
+        overallSuccess = false;
+      }
     }
-    logs.push('✅ Existing Tenant data cleared (or attempted).');
+    logs.push('✅ Existing data cleared (or attempted).');
 
-
-    // This loop will only run once for Tenant based on modelSeedConfig
+    // Process each model
     for (const config of modelSeedConfig) {
       logs.push(`🌱 Processing ${config.modelName} from file: ${config.fileName}`);
       const filePath = path.join(seedDataDirRoot, config.fileName);
-      let dataToSeedFromJson; // Raw data from JSON
+      let dataToSeedFromJson;
 
       try {
         // Check file existence before reading
@@ -74,7 +88,7 @@ export async function GET(request) {
       } catch (fileError) {
         logs.push(`   ❌ Error loading or accessing file ${filePath}: ${fileError.message}`);
         overallSuccess = false;
-        continue; // Skip to next in modelSeedConfig (though there's only one)
+        continue;
       }
 
       if (!dataToSeedFromJson || !Array.isArray(dataToSeedFromJson) || dataToSeedFromJson.length === 0) {
@@ -82,68 +96,139 @@ export async function GET(request) {
         continue;
       }
 
-      // --- Insert one by one with pre-processing ---
-      logs.push(`   Attempting to insert ${dataToSeedFromJson.length} tenant documents one by one with pre-processing...`);
+      // Insert one by one with pre-processing
+      logs.push(`   Attempting to insert ${dataToSeedFromJson.length} ${config.modelName} documents one by one with pre-processing...`);
       let successfullyInsertedCount = 0;
+      totalAttemptedInserts += dataToSeedFromJson.length;
+
       for (let i = 0; i < dataToSeedFromJson.length; i++) {
-        const originalTenantDocData = dataToSeedFromJson[i]; // Data from JSON
+        const originalDocData = dataToSeedFromJson[i];
 
-        // ---- START PRE-PROCESSING ----
-        const processedTenantDocData = {
-          ...originalTenantDocData, // Copy all other fields (id, cognitoId, name, email, etc.)
-        };
+        // Pre-process the data based on model type
+        const processedDocData = preprocessDocumentData(config.modelName, originalDocData, logs);
 
-        // Transform 'properties'
-        if (originalTenantDocData.properties && originalTenantDocData.properties.connect && Array.isArray(originalTenantDocData.properties.connect)) {
-          processedTenantDocData.properties = originalTenantDocData.properties.connect.map(item => item.id).filter(id => typeof id === 'number');
-          logs.push(`      Processed properties for JSON ID ${originalTenantDocData.id || 'N/A'}: ${JSON.stringify(processedTenantDocData.properties)}`);
-        } else {
-          processedTenantDocData.properties = []; // Default to empty array if not in expected format
-          logs.push(`      Defaulted properties for JSON ID ${originalTenantDocData.id || 'N/A'} to []`);
-        }
-
-        // Transform 'favorites'
-        if (originalTenantDocData.favorites && originalTenantDocData.favorites.connect && Array.isArray(originalTenantDocData.favorites.connect)) {
-          processedTenantDocData.favorites = originalTenantDocData.favorites.connect.map(item => item.id).filter(id => typeof id === 'number');
-          logs.push(`      Processed favorites for JSON ID ${originalTenantDocData.id || 'N/A'}: ${JSON.stringify(processedTenantDocData.favorites)}`);
-        } else {
-          processedTenantDocData.favorites = []; // Default to empty array
-          logs.push(`      Defaulted favorites for JSON ID ${originalTenantDocData.id || 'N/A'} to []`);
-        }
-        // ---- END PRE-PROCESSING ----
-
-        logs.push(`      Attempting to save processed tenant JSON ID: ${processedTenantDocData.id || 'N/A'}, Name: ${processedTenantDocData.name || 'N/A'}`);
+        logs.push(`      Attempting to save processed ${config.modelName} JSON ID: ${processedDocData.id || 'N/A'}`);
         try {
-          const tenant = new Tenant(processedTenantDocData); // Use the processed data
-          await tenant.save();
-          logs.push(`         ✅ Inserted tenant JSON ID: ${processedTenantDocData.id || 'N/A'}. New DB _id: ${tenant._id}`);
+          const document = new config.MongooseModel(processedDocData);
+          await document.save();
+          logs.push(`         ✅ Inserted ${config.modelName} JSON ID: ${processedDocData.id || 'N/A'}. New DB _id: ${document._id}`);
           successfullyInsertedCount++;
         } catch (singleDbError) {
-          logs.push(`         ❌ FAILED to insert tenant JSON ID: ${processedTenantDocData.id || 'N/A'}. Error: ${singleDbError.message}`);
+          logs.push(`         ❌ FAILED to insert ${config.modelName} JSON ID: ${processedDocData.id || 'N/A'}. Error: ${singleDbError.message}`);
           if (singleDbError.errors) {
             for (const fieldName in singleDbError.errors) {
-                logs.push(`            Validation Error on path '${singleDbError.errors[fieldName].path}': ${singleDbError.errors[fieldName].message}`);
+              logs.push(`            Validation Error on path '${singleDbError.errors[fieldName].path}': ${singleDbError.errors[fieldName].message}`);
             }
           }
           overallSuccess = false;
         }
       }
-      logs.push(`   Finished one-by-one insert. Successfully inserted: ${successfullyInsertedCount}/${dataToSeedFromJson.length}`);
-      // --- End one-by-one insert ---
+      
+      logs.push(`   Finished one-by-one insert for ${config.modelName}. Successfully inserted: ${successfullyInsertedCount}/${dataToSeedFromJson.length}`);
+      totalSuccessfulInserts += successfullyInsertedCount;
     }
 
-
-    if (overallSuccess && successfullyInsertedCount === (dataToSeedFromJson ? dataToSeedFromJson.length : 0) ) {
-      logs.push('🎉 Tenant seeding completed successfully!');
-      return NextResponse.json({ success: true, message: 'Tenant seeding completed successfully!', logs });
+    if (overallSuccess && totalSuccessfulInserts === totalAttemptedInserts) {
+      logs.push('🎉 All models seeding completed successfully!');
+      return NextResponse.json({ 
+        success: true, 
+        message: 'All models seeding completed successfully!', 
+        totalInserted: totalSuccessfulInserts,
+        totalAttempted: totalAttemptedInserts,
+        logs 
+      });
     } else {
-      logs.push('⚠️ Tenant seeding completed with one or more errors or not all documents inserted.');
-      return NextResponse.json({ success: false, message: 'Tenant seeding completed with errors or incomplete.', logs }, {status: 500});
+      logs.push('⚠️ Seeding completed with one or more errors or not all documents inserted.');
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Seeding completed with errors or incomplete.',
+        totalInserted: totalSuccessfulInserts,
+        totalAttempted: totalAttemptedInserts,
+        logs 
+      }, { status: 500 });
     }
 
   } catch (globalError) {
-    console.error('❌ Global error during Tenant seeding API call:', globalError);
+    console.error('❌ Global error during seeding API call:', globalError);
     logs.push(`❌ GLOBAL ERROR: ${globalError.message}`);
-    return NextResponse.json({ success: false, message: 'A critical error occurred during Tenant seeding.', error: globalError.toString(), logs }, { status: 500 });
+    return NextResponse.json({ 
+      success: false, 
+      message: 'A critical error occurred during seeding.', 
+      error: globalError.toString(), 
+      logs 
+    }, { status: 500 });
   }
+}
+
+// Function to preprocess document data based on model type
+function preprocessDocumentData(modelName, originalData, logs) {
+  const processedData = { ...originalData };
+
+  switch (modelName) {
+    case 'Location':
+      // Handle WKT to GeoJSON conversion if needed
+      if (originalData.coordinates && typeof originalData.coordinates === 'string' && originalData.coordinates.startsWith('POINT')) {
+        // Extract coordinates from WKT format "POINT(lng lat)"
+        const coordMatch = originalData.coordinates.match(/POINT\(([^)]+)\)/);
+        if (coordMatch) {
+          const [lng, lat] = coordMatch[1].split(' ').map(Number);
+          processedData.coordinates = {
+            type: 'Point',
+            coordinates: [lng, lat]
+          };
+          logs.push(`      Converted WKT to GeoJSON for Location ID ${originalData.id || 'N/A'}`);
+        }
+      }
+      break;
+
+    case 'Property':
+      // Transform relational fields if they exist
+      if (originalData.location && originalData.location.connect && originalData.location.connect.id) {
+        processedData.location = originalData.location.connect.id;
+        logs.push(`      Processed location for Property ID ${originalData.id || 'N/A'}: ${processedData.location}`);
+      }
+      if (originalData.manager && originalData.manager.connect && originalData.manager.connect.id) {
+        processedData.manager = originalData.manager.connect.id;
+        logs.push(`      Processed manager for Property ID ${originalData.id || 'N/A'}: ${processedData.manager}`);
+      }
+      break;
+
+    case 'Lease':
+      // Transform relational fields
+      if (originalData.tenant && originalData.tenant.connect && originalData.tenant.connect.id) {
+        processedData.tenant = originalData.tenant.connect.id;
+        logs.push(`      Processed tenant for Lease ID ${originalData.id || 'N/A'}: ${processedData.tenant}`);
+      }
+      if (originalData.property && originalData.property.connect && originalData.property.connect.id) {
+        processedData.property = originalData.property.connect.id;
+        logs.push(`      Processed property for Lease ID ${originalData.id || 'N/A'}: ${processedData.property}`);
+      }
+      break;
+
+    case 'Application':
+      // Transform relational fields
+      if (originalData.tenant && originalData.tenant.connect && originalData.tenant.connect.id) {
+        processedData.tenant = originalData.tenant.connect.id;
+        logs.push(`      Processed tenant for Application ID ${originalData.id || 'N/A'}: ${processedData.tenant}`);
+      }
+      if (originalData.property && originalData.property.connect && originalData.property.connect.id) {
+        processedData.property = originalData.property.connect.id;
+        logs.push(`      Processed property for Application ID ${originalData.id || 'N/A'}: ${processedData.property}`);
+      }
+      break;
+
+    case 'Payment':
+      // Transform lease relationship
+      if (originalData.lease && originalData.lease.connect && originalData.lease.connect.id) {
+        processedData.lease = originalData.lease.connect.id;
+        logs.push(`      Processed lease for Payment ID ${originalData.id || 'N/A'}: ${processedData.lease}`);
+      }
+      break;
+
+    case 'Manager':
+      // No special preprocessing needed for Manager currently
+      break;
+  }
+
+  return processedData;
 }

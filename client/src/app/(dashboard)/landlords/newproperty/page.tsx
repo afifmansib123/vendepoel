@@ -521,7 +521,7 @@ const NewSellerPropertyPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="salePrice" className={labelClassName}>
-                  Asking Price ($)
+                  Asking Price (THB)
                 </label>
                 <input
                   type="number"
