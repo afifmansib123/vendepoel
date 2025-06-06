@@ -45,19 +45,19 @@ const FeaturesSection = () => {
                 imageSrc={`/landing-search${3 - index}.png`}
                 title={
                   [
-                    "Trustworthy and Verified Listings",
-                    "Browse Rental Listings with Ease",
-                    "Simplify Your Rental Search with Advanced",
+                    "List Your Property for Maximum Exposure",
+                    "Find Your Dream Property with Confidence",
+                    "Grow Your Business with Premium Tools",
                   ][index]
                 }
                 description={
                   [
-                    "Discover the best rental options with user reviews and ratings.",
-                    "Get access to user reviews and ratings for a better understanding of rental options.",
-                    "Find trustworthy and verified rental listings to ensure a hassle-free experience.",
+                    "Showcase your properties to qualified buyers and investors with professional listings and marketing tools",
+                    "Browse verified property listings with detailed information, photos, and direct contact with sellers and agents.",
+                    "Access exclusive listings, connect with serious buyers and sellers, and manage your portfolio efficiently.",
                   ][index]
                 }
-                linkText={["Explore", "Search", "Discover"][index]}
+                linkText={["List Property", "Browse Properties", "Join Network"][index]}
                 linkHref={["/explore", "/search", "/discover"][index]}
               />
             </motion.div>

@@ -60,9 +60,9 @@ const Navbar = () => {
                 className="w-6 h-6"
               />
               <div className="text-xl font-bold">
-                RENT
+                Vande
                 <span className="text-secondary-500 font-light hover:!text-primary-300">
-                  IFUL
+                  poel
                 </span>
               </div>
             </div>
@@ -99,7 +99,7 @@ const Navbar = () => {
         </div>
         {!isDashboardPage && (
           <p className="text-primary-200 hidden md:block">
-            Discover your perfect rental apartment with our advanced search
+            Start your journey to finding the perfect place to call home.
           </p>
         )}
         <div className="flex items-center gap-5">
