@@ -1051,7 +1051,7 @@ Thank you.
                       Sale Price
                     </div>
                     <div className="font-semibold text-gray-800 text-lg">
-                      ${property.salePrice.toLocaleString()}
+                      THB{property.salePrice.toLocaleString()}
                     </div>
                   </div>
                   <div className="relative">
@@ -1185,12 +1185,12 @@ Thank you.
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-gray-600">
                       <span>Application Fee</span>
-                      <span>${applicationFee}</span>
+                      <span>THB{applicationFee}</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between items-center text-gray-600">
                       <span>Security Deposit</span>
-                      <span>${securityDeposit}</span>
+                      <span>THB{securityDeposit}</span>
                     </div>
                     {property.HOAFees !== null &&
                       property.HOAFees !== undefined && (
@@ -1198,7 +1198,7 @@ Thank you.
                           <Separator />
                           <div className="flex justify-between items-center text-gray-600">
                             <span>HOA Fees (Monthly)</span>
-                            <span>${property.HOAFees.toLocaleString()}</span>
+                            <span>THB{property.HOAFees.toLocaleString()}</span>
                           </div>
                         </>
                       )}
